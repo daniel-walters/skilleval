@@ -1,0 +1,52 @@
+---
+description: Conventional commit message format and length rules
+alwaysApply: true
+---
+
+# Commit Messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/). The `commit-msg` pre-commit hook enforces the format; this rule adds length and content guidance.
+
+## Structure
+
+```
+type(optional-scope): subject
+
+body
+```
+
+- **Subject (title):** max **50 characters** (including `type`, scope, and colon). Imperative mood. No trailing period.
+- **Body:** unlimited. Blank line after the subject. Put detail, motivation, and context here — not in the subject.
+
+## Where information goes
+
+| Place | Content |
+| --- | --- |
+| Subject | One-line summary of *what* changed |
+| Body | *Why*, details, tradeoffs, migration notes, breaking changes |
+| Footer | Optional trailers (`Fixes #123`, `BREAKING CHANGE: …`) |
+
+## Types
+
+`feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `perf`, `style`, `build`, `revert`
+
+## Examples
+
+```text
+feat: add skill loader
+
+Load SKILL.md from a file path or directory and return
+the parsed skill name, path, and body.
+```
+
+```text
+fix: reject non-SKILL.md paths
+
+Previously Load accepted any filename. Callers now get a
+clear error when the basename is not SKILL.md.
+```
+
+```text
+# ❌ subject too long / detail crammed into title
+feat: add skill loader that reads SKILL.md from dirs and validates basename
+```
