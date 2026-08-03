@@ -14,6 +14,10 @@ import (
 )
 
 func main() {
+	if err := loadDotEnv(".env"); err != nil {
+		fmt.Fprintf(os.Stderr, "skilleval: %v\n", err)
+		os.Exit(1)
+	}
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(2)
@@ -36,6 +40,10 @@ func main() {
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `Usage:
   skilleval run <eval.yaml> [--model ID] [--out result.json]
+
+Credentials:
+  CURSOR_API_KEY from the process environment, or a .env file in the
+  current directory (process environment wins if both are set).
 
 `)
 }
