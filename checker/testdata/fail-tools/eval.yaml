@@ -1,0 +1,8 @@
+schemaVersion: 1
+name: fail-tools
+prompt: Do the thing
+skill: helper
+expects:
+  toolsUsed:
+    includes: [read, edit]
+    excludes: [web]

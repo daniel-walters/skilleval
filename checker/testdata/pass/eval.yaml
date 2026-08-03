@@ -1,0 +1,26 @@
+schemaVersion: 1
+name: pass
+prompt: Do the thing
+skill: helper
+expects:
+  turns:
+    max: 10
+  costUSD:
+    max: 1.0
+  toolsUsed:
+    includes: [read, edit]
+    excludes: [web]
+  skills:
+    activated:
+      includes: [helper]
+  files:
+    src/foo.go:
+      status: modified
+      contains: "func Foo"
+    src/new.go:
+      status: created
+      equals: "package main\n"
+    src/gone.go:
+      status: deleted
+  finalMessage:
+    contains: Done

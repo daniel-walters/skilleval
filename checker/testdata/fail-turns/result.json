@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "run_fail_turns",
+  "startedAt": "2026-08-02T10:00:00Z",
+  "finishedAt": "2026-08-02T10:00:01Z",
+  "eval": {
+    "name": "fail-turns",
+    "prompt": "Do the thing",
+    "skill": "helper",
+    "model": "composer-2",
+    "runner": "cursor",
+    "attempt": 1
+  },
+  "status": "finished",
+  "metrics": {
+    "turns": 8,
+    "durationMs": 1000,
+    "toolsUsed": [],
+    "toolCalls": [],
+    "usage": {
+      "inputTokens": 1,
+      "outputTokens": 1,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 2
+    },
+    "costUSD": 0.1
+  },
+  "skills": {
+    "discovered": [],
+    "activated": []
+  },
+  "outcomes": {
+    "files": {}
+  },
+  "error": null,
+  "finalMessage": "ok"
+}

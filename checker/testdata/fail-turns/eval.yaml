@@ -1,0 +1,7 @@
+schemaVersion: 1
+name: fail-turns
+prompt: Do the thing
+skill: helper
+expects:
+  turns:
+    max: 3

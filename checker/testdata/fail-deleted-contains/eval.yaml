@@ -1,0 +1,9 @@
+schemaVersion: 1
+name: fail-deleted-contains
+prompt: Do the thing
+skill: helper
+expects:
+  files:
+    src/gone.go:
+      status: deleted
+      contains: "still here"
