@@ -1,0 +1,26 @@
+schemaVersion: 1
+name: refactor-helper
+prompt: Refactor src/foo.go for clarity
+skill: refactor-helper
+input: fixtures/refactor-helper
+expects:
+  turns:
+    max: 10
+  costUSD:
+    max: 1.0
+  toolsUsed:
+    includes: [read, edit]
+    excludes: [web]
+  skills:
+    activated:
+      includes: [refactor-helper]
+  files:
+    src/foo.go:
+      status: modified
+      contains: "func Foo"
+    src/new.go:
+      status: created
+    src/gone.go:
+      status: deleted
+  finalMessage:
+    contains: Refactored
