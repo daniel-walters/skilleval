@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "run_01hxyzexample000000000000",
+  "startedAt": "2026-08-02T10:00:00Z",
+  "finishedAt": "2026-08-02T10:00:12Z",
+  "eval": {
+    "name": "refactor-helper",
+    "prompt": "Refactor src/foo.go for clarity",
+    "skill": "refactor-helper",
+    "model": "composer-2",
+    "runner": "cursor",
+    "attempt": 1,
+    "totalAttempts": 10
+  },
+  "status": "finished",
+  "metrics": {
+    "turns": 4,
+    "durationMs": 12000,
+    "toolsUsed": ["read", "edit"],
+    "toolCalls": [
+      {
+        "name": "read",
+        "status": "completed"
+      },
+      {
+        "name": "edit",
+        "status": "completed"
+      }
+    ],
+    "usage": {
+      "inputTokens": 1200,
+      "outputTokens": 400,
+      "cacheReadTokens": 100,
+      "cacheWriteTokens": 50,
+      "totalTokens": 1750
+    },
+    "costUSD": null
+  },
+  "skills": {
+    "discovered": ["refactor-helper"],
+    "activated": ["refactor-helper"]
+  },
+  "outcomes": {
+    "files": {
+      "src/foo.go": {
+        "status": "modified"
+      },
+      "src/new.go": {
+        "status": "created"
+      },
+      "src/gone.go": {
+        "status": "deleted"
+      }
+    }
+  },
+  "error": null,
+  "finalMessage": "Refactored foo.go and added new.go."
+}

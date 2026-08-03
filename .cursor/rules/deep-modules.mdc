@@ -1,0 +1,37 @@
+---
+description: Prefer deep modules with simple interfaces
+alwaysApply: true
+---
+
+# Deep Modules
+
+Prefer **deep modules**: a small, simple interface that hides substantial complexity behind it. Avoid shallow modules that expose most of their internals or push complexity onto callers.
+
+## Interface
+
+- Keep the public API small and obvious. Callers should need little context to use it correctly.
+- Hide implementation details (formats, storage layout, retries, normalization) inside the module.
+- Don’t leak helper types, flags, or steps that only exist for the implementation.
+
+## Complexity
+
+- Put complexity *inside* the module when it simplifies every caller.
+- If many call sites repeat the same setup/boilerplate, the module is too shallow — pull that in.
+- Split only when each piece has a clear, deep boundary — not to make files smaller.
+
+## Examples
+
+```text
+✅ Deep: result.Load(path) → Result
+   (opens file, decodes JSON, validates schema version)
+
+❌ Shallow: OpenFile + DecodeJSON + CheckVersion as separate public steps
+   (caller reassembles the real operation)
+```
+
+```text
+✅ Deep: checker.Check(result, expects) → Verdict
+❌ Shallow: exposing each predicate as the primary API with no composition
+```
+
+When designing a package, ask: *Can a caller do the common thing in one clear call?* If not, deepen the module before adding more surface area.
