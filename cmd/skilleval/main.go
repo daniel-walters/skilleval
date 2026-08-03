@@ -73,6 +73,9 @@ func runCmd(args []string) error {
 		return fmt.Errorf("run: --model is required")
 	}
 
+	hb := startHeartbeat(os.Stderr, stderrIsTerminal())
+	defer hb.Stop()
+
 	r, workspace, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
 		Model:   *model,
 		Attempt: 1,
