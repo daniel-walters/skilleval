@@ -12,6 +12,7 @@ for (const method of ["log", "info", "warn", "debug"]) {
 }
 
 const { Agent, CursorAgentError } = await import("@cursor/sdk");
+const { countTurns } = await import("./turns.mjs");
 
 function parseArgs(argv) {
   const out = { cwd: "", model: "", prompt: "" };
@@ -130,12 +131,7 @@ async function main() {
     try {
       if (run.supports?.("conversation")) {
         const conv = await run.conversation();
-        const agentTurns = (conv ?? []).filter(
-          (t) => t.type === "agentConversationTurn",
-        );
-        if (agentTurns.length > 0) {
-          conversationTurns = agentTurns.length;
-        }
+        conversationTurns = countTurns(turns, conv);
       }
     } catch {
       // keep stream-derived turns
