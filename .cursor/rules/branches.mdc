@@ -1,0 +1,38 @@
+---
+description: Conventional git branch naming
+alwaysApply: true
+---
+
+# Branch Names
+
+Use conventional branch names: `type/short-description`.
+
+## Format
+
+```
+type/short-description
+```
+
+- **type:** same vocabulary as commits — `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `perf`, `style`, `build`, `revert`
+- **description:** kebab-case, brief, imperative or noun phrase
+- No issue IDs, usernames, or ticket prefixes in the branch name unless the user asks for them
+
+## Examples
+
+```text
+feat/skill-loader
+fix/reject-non-skill-paths
+chore/bootstrap-hooks
+ci/github-actions
+docs/readme-ci-section
+```
+
+```text
+# ❌ Linear-style or username prefixes
+danielwaltersdev/dan-6-set-up-github-ci
+# ❌ spaces, underscores, or missing type
+feat_skill_loader
+skill-loader
+```
+
+When creating a branch for work in this repo, follow this format unless the user specifies a different name.
