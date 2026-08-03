@@ -33,8 +33,10 @@ func TestCheckFixtures(t *testing.T) {
 		},
 		{name: "fail-skills", wantPassed: false, wantFailPath: []string{"skills.activated.includes"}},
 		{name: "fail-file-status", wantPassed: false, wantFailPath: []string{"files[src/foo.go].status"}},
+		{name: "fail-file-missing", wantPassed: false, wantFailPath: []string{"files[src/foo.go].status"}},
 		{name: "fail-file-deleted", wantPassed: false, wantFailPath: []string{"files[src/gone.go].status"}},
 		{name: "fail-deleted-contains", wantPassed: false, wantFailPath: []string{"files[src/gone.go]"}},
+		{name: "fail-workspace-missing", wantPassed: false, wantFailPath: []string{"files[src/foo.go]"}},
 		{
 			name:         "fail-final-message",
 			wantPassed:   false,
