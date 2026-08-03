@@ -1,7 +1,7 @@
 schemaVersion: 1
 name: fail-file-deleted
 prompt: Do the thing
-skill: helper
+skill: ../skills/helper
 expects:
   files:
     src/gone.go:

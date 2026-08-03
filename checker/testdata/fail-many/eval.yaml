@@ -1,7 +1,7 @@
 schemaVersion: 1
 name: fail-many
 prompt: Do the thing
-skill: helper
+skill: ../skills/helper
 expects:
   turns:
     max: 1

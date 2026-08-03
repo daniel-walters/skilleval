@@ -3,6 +3,7 @@ package eval_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/daniel-walters/skilleval/eval"
@@ -48,6 +49,11 @@ func TestGoldenRoundTrip(t *testing.T) {
 	if err := copyDir(fixtureSrc, fixtureDst); err != nil {
 		t.Fatalf("copy fixtures: %v", err)
 	}
+	skillSrc := filepath.Join("testdata", "skills", "refactor-helper")
+	skillDst := filepath.Join(dir, "skills", "refactor-helper")
+	if err := copyDir(skillSrc, skillDst); err != nil {
+		t.Fatalf("copy skill: %v", err)
+	}
 
 	again, err := eval.Load(tmpPath)
 	if err != nil {
@@ -57,31 +63,54 @@ func TestGoldenRoundTrip(t *testing.T) {
 }
 
 func TestLoadRejectsBadSchemaVersion(t *testing.T) {
-	path := writeTempEval(t, "schemaVersion: 99\nname: x\nprompt: p\nskill: s\n")
+	path := writeTempEvalWithSkill(t, "schemaVersion: 99\nname: x\nprompt: p\nskill: skill-dir\n")
 	if _, err := eval.Load(path); err == nil {
 		t.Fatal("expected error for unsupported schemaVersion")
 	}
 }
 
 func TestLoadRejectsMissingName(t *testing.T) {
-	path := writeTempEval(t, "schemaVersion: 1\nprompt: p\nskill: s\n")
+	path := writeTempEvalWithSkill(t, "schemaVersion: 1\nprompt: p\nskill: skill-dir\n")
 	if _, err := eval.Load(path); err == nil {
 		t.Fatal("expected error for missing name")
 	}
 }
 
 func TestLoadRejectsMissingInputDir(t *testing.T) {
-	path := writeTempEval(t, "schemaVersion: 1\nname: x\nprompt: p\nskill: s\ninput: missing-fixtures\n")
+	path := writeTempEvalWithSkill(t, "schemaVersion: 1\nname: x\nprompt: p\nskill: skill-dir\ninput: missing-fixtures\n")
 	if _, err := eval.Load(path); err == nil {
 		t.Fatal("expected error for missing input directory")
 	}
 }
 
+func TestLoadRejectsMissingSkillDir(t *testing.T) {
+	path := writeTempEval(t, "schemaVersion: 1\nname: x\nprompt: p\nskill: missing-skill\n")
+	if _, err := eval.Load(path); err == nil {
+		t.Fatal("expected error for missing skill directory")
+	}
+}
+
+func TestLoadRejectsSkillWithoutSKILLMD(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "skill-dir")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatalf("mkdir skill: %v", err)
+	}
+	path := filepath.Join(dir, "eval.yaml")
+	body := "schemaVersion: 1\nname: x\nprompt: p\nskill: skill-dir\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("write eval: %v", err)
+	}
+	if _, err := eval.Load(path); err == nil {
+		t.Fatal("expected error for skill missing SKILL.md")
+	}
+}
+
 func TestLoadRejectsInvalidFileStatus(t *testing.T) {
-	path := writeTempEval(t, `schemaVersion: 1
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
 name: x
 prompt: p
-skill: s
+skill: skill-dir
 expects:
   files:
     a.go:
@@ -101,17 +130,17 @@ func assertGoldenEval(t *testing.T, e *eval.Eval) {
 	if e.Name != "refactor-helper" {
 		t.Fatalf("Name = %q", e.Name)
 	}
-	if e.Prompt != "Refactor src/foo.go for clarity" {
+	if !strings.Contains(e.Prompt, "Delete src/gone.go") {
 		t.Fatalf("Prompt = %q", e.Prompt)
 	}
-	if e.Skill != "refactor-helper" {
+	if e.Skill != "skills/refactor-helper" {
 		t.Fatalf("Skill = %q", e.Skill)
 	}
 	if e.Input != "fixtures/refactor-helper" {
 		t.Fatalf("Input = %q", e.Input)
 	}
 
-	if e.Expects.Turns == nil || e.Expects.Turns.Max == nil || *e.Expects.Turns.Max != 10 {
+	if e.Expects.Turns == nil || e.Expects.Turns.Max == nil || *e.Expects.Turns.Max != 15 {
 		t.Fatalf("Turns = %#v", e.Expects.Turns)
 	}
 	if e.Expects.CostUSD == nil || e.Expects.CostUSD.Max == nil || *e.Expects.CostUSD.Max != 1.0 {
@@ -138,14 +167,15 @@ func assertGoldenEval(t *testing.T, e *eval.Eval) {
 	if foo.Status != result.FileModified || foo.Contains != "func Foo" {
 		t.Fatalf("foo = %#v", foo)
 	}
-	if e.Expects.Files["src/new.go"].Status != result.FileCreated {
-		t.Fatalf("new = %#v", e.Expects.Files["src/new.go"])
+	newFile := e.Expects.Files["src/new.go"]
+	if newFile.Status != result.FileCreated || newFile.Contains != "package demo" {
+		t.Fatalf("new = %#v", newFile)
 	}
 	if e.Expects.Files["src/gone.go"].Status != result.FileDeleted {
 		t.Fatalf("gone = %#v", e.Expects.Files["src/gone.go"])
 	}
 
-	if e.Expects.FinalMessage == nil || e.Expects.FinalMessage.Contains != "Refactored" {
+	if e.Expects.FinalMessage == nil || e.Expects.FinalMessage.Contains != "Refactor" {
 		t.Fatalf("FinalMessage = %#v", e.Expects.FinalMessage)
 	}
 }
@@ -153,6 +183,24 @@ func assertGoldenEval(t *testing.T, e *eval.Eval) {
 func writeTempEval(t *testing.T, body string) string {
 	t.Helper()
 	dir := t.TempDir()
+	path := filepath.Join(dir, "eval.yaml")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("write temp eval: %v", err)
+	}
+	return path
+}
+
+func writeTempEvalWithSkill(t *testing.T, body string) string {
+	t.Helper()
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "skill-dir")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatalf("mkdir skill: %v", err)
+	}
+	skillMD := "---\nname: helper\ndescription: test\n---\n\n# Helper\n"
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillMD), 0o644); err != nil {
+		t.Fatalf("write SKILL.md: %v", err)
+	}
 	path := filepath.Join(dir, "eval.yaml")
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		t.Fatalf("write temp eval: %v", err)

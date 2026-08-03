@@ -1,7 +1,7 @@
 schemaVersion: 1
 name: fail-skills
 prompt: Do the thing
-skill: helper
+skill: ../skills/helper
 expects:
   skills:
     activated:

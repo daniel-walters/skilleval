@@ -1,7 +1,7 @@
 schemaVersion: 1
 name: fail-final-message
 prompt: Do the thing
-skill: helper
+skill: ../skills/helper
 expects:
   finalMessage:
     contains: Refactored

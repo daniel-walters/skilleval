@@ -1,4 +1,4 @@
 schemaVersion: 1
 name: empty-expects
 prompt: Do the thing
-skill: helper
+skill: ../skills/helper

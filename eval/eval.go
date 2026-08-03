@@ -17,12 +17,14 @@ const SchemaVersion = 1
 
 // Eval is one eval document: what to run and what must be true.
 type Eval struct {
-	SchemaVersion int     `yaml:"schemaVersion"`
-	Name          string  `yaml:"name"`
-	Prompt        string  `yaml:"prompt"`
-	Skill         string  `yaml:"skill"`
-	Input         string  `yaml:"input,omitempty"`
-	Expects       Expects `yaml:"expects,omitempty"`
+	SchemaVersion int    `yaml:"schemaVersion"`
+	Name          string `yaml:"name"`
+	Prompt        string `yaml:"prompt"`
+	// Skill is a filesystem path to a skill directory containing SKILL.md
+	// (relative to the eval YAML, or absolute).
+	Skill   string  `yaml:"skill"`
+	Input   string  `yaml:"input,omitempty"`
+	Expects Expects `yaml:"expects,omitempty"`
 }
 
 // Expects are deterministic predicates over a Result (and workspace files).
@@ -75,8 +77,9 @@ type TextExpect struct {
 }
 
 // Load reads path as an eval YAML document, validates it, and returns the Eval.
-// When Input is set, it is interpreted relative to the YAML file's directory
-// and must name an existing directory.
+// Skill and optional Input are interpreted relative to the YAML file's directory.
+// Skill must name an existing directory that contains SKILL.md.
+// Input, when set, must name an existing directory.
 func Load(path string) (*Eval, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -93,6 +96,14 @@ func Load(path string) (*Eval, error) {
 	return &e, nil
 }
 
+// ResolvePath joins rel with the eval YAML directory when rel is not absolute.
+func ResolvePath(evalPath, rel string) string {
+	if rel == "" || filepath.IsAbs(rel) {
+		return rel
+	}
+	return filepath.Join(filepath.Dir(evalPath), rel)
+}
+
 func validate(e *Eval, path string) error {
 	if e.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("eval: %s: unsupported schemaVersion %d (want %d)", path, e.SchemaVersion, SchemaVersion)
@@ -105,6 +116,19 @@ func validate(e *Eval, path string) error {
 	}
 	if strings.TrimSpace(e.Skill) == "" {
 		return fmt.Errorf("eval: %s: skill is required", path)
+	}
+
+	skillPath := ResolvePath(path, e.Skill)
+	info, err := os.Stat(skillPath)
+	if err != nil {
+		return fmt.Errorf("eval: %s: skill %q: %w", path, e.Skill, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("eval: %s: skill %q is not a directory", path, e.Skill)
+	}
+	skillMD := filepath.Join(skillPath, "SKILL.md")
+	if _, err := os.Stat(skillMD); err != nil {
+		return fmt.Errorf("eval: %s: skill %q: missing SKILL.md: %w", path, e.Skill, err)
 	}
 
 	for filePath, fe := range e.Expects.Files {
@@ -122,11 +146,8 @@ func validate(e *Eval, path string) error {
 	if e.Input == "" {
 		return nil
 	}
-	inputPath := e.Input
-	if !filepath.IsAbs(inputPath) {
-		inputPath = filepath.Join(filepath.Dir(path), e.Input)
-	}
-	info, err := os.Stat(inputPath)
+	inputPath := ResolvePath(path, e.Input)
+	info, err = os.Stat(inputPath)
 	if err != nil {
 		return fmt.Errorf("eval: %s: input %q: %w", path, e.Input, err)
 	}
