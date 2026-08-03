@@ -1,0 +1,8 @@
+schemaVersion: 1
+name: fail-final-message
+prompt: Do the thing
+skill: helper
+expects:
+  finalMessage:
+    contains: Refactored
+    equals: Exact

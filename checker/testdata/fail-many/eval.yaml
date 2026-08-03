@@ -1,0 +1,11 @@
+schemaVersion: 1
+name: fail-many
+prompt: Do the thing
+skill: helper
+expects:
+  turns:
+    max: 1
+  costUSD:
+    max: 0.1
+  finalMessage:
+    contains: Done

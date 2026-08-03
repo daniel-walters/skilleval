@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "run_fail_skills",
+  "startedAt": "2026-08-02T10:00:00Z",
+  "finishedAt": "2026-08-02T10:00:01Z",
+  "eval": {
+    "name": "fail-skills",
+    "prompt": "Do the thing",
+    "skill": "helper",
+    "model": "composer-2",
+    "runner": "cursor",
+    "attempt": 1
+  },
+  "status": "finished",
+  "metrics": {
+    "turns": 1,
+    "durationMs": 1000,
+    "toolsUsed": [],
+    "toolCalls": [],
+    "usage": {
+      "inputTokens": 1,
+      "outputTokens": 1,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 2
+    },
+    "costUSD": 0.1
+  },
+  "skills": {
+    "discovered": ["other"],
+    "activated": ["other"]
+  },
+  "outcomes": {
+    "files": {}
+  },
+  "error": null,
+  "finalMessage": "ok"
+}

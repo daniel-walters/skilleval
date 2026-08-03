@@ -1,0 +1,8 @@
+schemaVersion: 1
+name: fail-skills
+prompt: Do the thing
+skill: helper
+expects:
+  skills:
+    activated:
+      includes: [helper]
