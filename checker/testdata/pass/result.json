@@ -15,7 +15,10 @@
   "metrics": {
     "turns": 4,
     "durationMs": 12000,
-    "toolsUsed": ["read", "edit"],
+    "toolsUsed": [
+      "read",
+      "edit"
+    ],
     "toolCalls": [],
     "usage": {
       "inputTokens": 100,
@@ -27,14 +30,21 @@
     "costUSD": 0.25
   },
   "skills": {
-    "discovered": ["helper"],
-    "activated": ["helper"]
+    "activated": [
+      "helper"
+    ]
   },
   "outcomes": {
     "files": {
-      "src/foo.go": {"status": "modified"},
-      "src/new.go": {"status": "created"},
-      "src/gone.go": {"status": "deleted"}
+      "src/foo.go": {
+        "status": "modified"
+      },
+      "src/new.go": {
+        "status": "created"
+      },
+      "src/gone.go": {
+        "status": "deleted"
+      }
     }
   },
   "error": null,

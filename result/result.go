@@ -94,10 +94,10 @@ type Usage struct {
 	TotalTokens      int `json:"totalTokens"`
 }
 
-// Skills records discovery/activation when the runner can observe them.
+// Skills records activation when the runner can observe it.
+// For Cursor, a skill is activated when the agent completes a read of its SKILL.md.
 type Skills struct {
-	Discovered []string `json:"discovered"`
-	Activated  []string `json:"activated"`
+	Activated []string `json:"activated"`
 }
 
 // Outcomes holds workspace change metadata (no file bodies).

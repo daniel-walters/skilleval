@@ -13,6 +13,7 @@ for (const method of ["log", "info", "warn", "debug"]) {
 
 const { Agent, CursorAgentError } = await import("@cursor/sdk");
 const { countTurns } = await import("./turns.mjs");
+const { noteActivatedSkill } = await import("./skills.mjs");
 
 function parseArgs(argv) {
   const out = { cwd: "", model: "", prompt: "" };
@@ -104,6 +105,7 @@ async function main() {
 
   const toolCalls = [];
   const toolsUsedSet = new Set();
+  const activatedSkills = new Set();
   let turns = 0;
 
   let agent;
@@ -121,6 +123,7 @@ async function main() {
     for await (const event of run.stream()) {
       if (event.type === "tool_call") {
         recordToolCall(toolCalls, toolsUsedSet, event);
+        noteActivatedSkill(activatedSkills, event);
       } else if (event.type === "assistant") {
         turns += 1;
       }
@@ -150,7 +153,7 @@ async function main() {
       toolsUsed: [...toolsUsedSet],
       toolCalls: toolCalls.map(({ name, status }) => ({ name, status })),
       usage: mapUsage(result.usage),
-      skills: { discovered: [], activated: [] },
+      skills: { activated: [...activatedSkills] },
     };
     process.stdout.write(JSON.stringify(out) + "\n");
   } catch (err) {
@@ -165,7 +168,7 @@ async function main() {
         toolsUsed: [],
         toolCalls: [],
         usage: emptyUsage(),
-        skills: { discovered: [], activated: [] },
+        skills: { activated: [] },
       };
       process.stdout.write(JSON.stringify(out) + "\n");
       return;
