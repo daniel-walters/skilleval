@@ -15,7 +15,10 @@
   "metrics": {
     "turns": 1,
     "durationMs": 1000,
-    "toolsUsed": ["read", "web"],
+    "toolsUsed": [
+      "read",
+      "web"
+    ],
     "toolCalls": [],
     "usage": {
       "inputTokens": 1,
@@ -27,7 +30,6 @@
     "costUSD": 0.1
   },
   "skills": {
-    "discovered": [],
     "activated": []
   },
   "outcomes": {

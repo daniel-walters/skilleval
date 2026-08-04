@@ -27,12 +27,13 @@
     "costUSD": 0.1
   },
   "skills": {
-    "discovered": [],
     "activated": []
   },
   "outcomes": {
     "files": {
-      "src/foo.go": {"status": "created"}
+      "src/foo.go": {
+        "status": "created"
+      }
     }
   },
   "error": null,

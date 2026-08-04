@@ -27,8 +27,9 @@
     "costUSD": 0.1
   },
   "skills": {
-    "discovered": ["other"],
-    "activated": ["other"]
+    "activated": [
+      "other"
+    ]
   },
   "outcomes": {
     "files": {}

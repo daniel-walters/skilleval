@@ -27,12 +27,13 @@
     "costUSD": 0.1
   },
   "skills": {
-    "discovered": [],
     "activated": []
   },
   "outcomes": {
     "files": {
-      "src/gone.go": {"status": "deleted"}
+      "src/gone.go": {
+        "status": "deleted"
+      }
     }
   },
   "error": null,

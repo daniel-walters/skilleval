@@ -18,7 +18,7 @@ func TestMapHelperOutput(t *testing.T) {
   "toolsUsed": ["read"],
   "toolCalls": [{"name":"read","status":"completed"}],
   "usage": {"inputTokens":1,"outputTokens":1,"cacheReadTokens":0,"cacheWriteTokens":0,"totalTokens":2},
-  "skills": {"discovered":["x"],"activated":[]}
+  "skills": {"activated":["helper"]}
 }`)
 	var out helperOutput
 	if err := json.Unmarshal(raw, &out); err != nil {
@@ -28,7 +28,7 @@ func TestMapHelperOutput(t *testing.T) {
 	if obs.Status != result.StatusCancelled || obs.ID != "abc" || obs.Turns != 3 {
 		t.Fatalf("obs = %+v", obs)
 	}
-	if obs.Usage.TotalTokens != 2 || obs.Skills.Discovered[0] != "x" {
+	if obs.Usage.TotalTokens != 2 || len(obs.Skills.Activated) != 1 || obs.Skills.Activated[0] != "helper" {
 		t.Fatalf("usage/skills = %+v %+v", obs.Usage, obs.Skills)
 	}
 }
@@ -65,7 +65,7 @@ func TestMapHelperOutputRunningBecomesErrorOnFailedRun(t *testing.T) {
 func TestExtractJSONObjectIgnoresLogLines(t *testing.T) {
 	stdout := []byte(`07:31:54.279 INFO  LocalCursorRulesService load completed meta={durationMs: 29, ruleCount: 0}
 07:31:54.288 INFO  AgentSkillsCursorRulesService load completed meta={durationMs: 36, ruleCount: 18, skillCount: 18}
-{"id":"run_1","status":"finished","finalMessage":"ok","error":null,"durationMs":1,"turns":1,"toolsUsed":[],"toolCalls":[],"usage":{"inputTokens":0,"outputTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0,"totalTokens":0},"skills":{"discovered":[],"activated":[]}}
+{"id":"run_1","status":"finished","finalMessage":"ok","error":null,"durationMs":1,"turns":1,"toolsUsed":[],"toolCalls":[],"usage":{"inputTokens":0,"outputTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0,"totalTokens":0},"skills":{"activated":[]}}
 `)
 	payload, err := extractJSONObject(stdout)
 	if err != nil {

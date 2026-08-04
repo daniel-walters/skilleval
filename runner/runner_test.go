@@ -53,8 +53,7 @@ func TestRunSeedsInputPlacesSkillAndDiffs(t *testing.T) {
 				TotalTokens:  15,
 			},
 			Skills: result.Skills{
-				Discovered: []string{"demo"},
-				Activated:  []string{"demo"},
+				Activated: []string{"demo"},
 			},
 		},
 		mutate: func(workspace string) error {
@@ -205,7 +204,7 @@ const out = {
   toolsUsed: ["read"],
   toolCalls: [{ name: "read", status: "completed" }],
   usage: { inputTokens: 1, outputTokens: 2, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 3 },
-  skills: { discovered: [], activated: [] }
+  skills: { activated: [] }
 };
 process.stdout.write(JSON.stringify(out) + "\n");
 `

@@ -14,7 +14,7 @@ import (
 	"github.com/daniel-walters/skilleval/result"
 )
 
-//go:embed cursoragent/run.mjs cursoragent/turns.mjs cursoragent/package.json
+//go:embed cursoragent/run.mjs cursoragent/turns.mjs cursoragent/skills.mjs cursoragent/package.json
 var cursorAssets embed.FS
 
 // CursorAgent invokes the embedded Node helper with @cursor/sdk.
@@ -154,10 +154,6 @@ func mapHelperOutput(raw helperOutput) AgentObservables {
 	if tools == nil {
 		tools = []string{}
 	}
-	discovered := raw.Skills.Discovered
-	if discovered == nil {
-		discovered = []string{}
-	}
 	activated := raw.Skills.Activated
 	if activated == nil {
 		activated = []string{}
@@ -173,8 +169,7 @@ func mapHelperOutput(raw helperOutput) AgentObservables {
 		ToolCalls:    calls,
 		Usage:        raw.Usage,
 		Skills: result.Skills{
-			Discovered: discovered,
-			Activated:  activated,
+			Activated: activated,
 		},
 	}
 }
@@ -202,7 +197,7 @@ func prepareCursorHelperDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cursoragent: temp dir: %w", err)
 	}
-	for _, name := range []string{"run.mjs", "turns.mjs", "package.json"} {
+	for _, name := range []string{"run.mjs", "turns.mjs", "skills.mjs", "package.json"} {
 		data, err := cursorAssets.ReadFile("cursoragent/" + name)
 		if err != nil {
 			return "", fmt.Errorf("cursoragent: embed %s: %w", name, err)

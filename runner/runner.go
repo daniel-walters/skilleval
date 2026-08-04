@@ -144,10 +144,6 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 	if toolCalls == nil {
 		toolCalls = []result.ToolCall{}
 	}
-	discovered := obs.Skills.Discovered
-	if discovered == nil {
-		discovered = []string{}
-	}
 	activated := obs.Skills.Activated
 	if activated == nil {
 		activated = []string{}
@@ -185,8 +181,7 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 			CostUSD:    nil,
 		},
 		Skills: result.Skills{
-			Discovered: discovered,
-			Activated:  activated,
+			Activated: activated,
 		},
 		Outcomes: result.Outcomes{
 			Files: files,

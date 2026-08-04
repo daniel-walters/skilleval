@@ -37,7 +37,6 @@
     "costUSD": null
   },
   "skills": {
-    "discovered": ["refactor-helper"],
     "activated": ["refactor-helper"]
   },
   "outcomes": {
