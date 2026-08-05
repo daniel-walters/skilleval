@@ -66,14 +66,14 @@ type StringSetExpect struct {
 // FileExpect checks a path's outcome status and/or content.
 type FileExpect struct {
 	Status   result.FileStatus `yaml:"status,omitempty"`
-	Contains string            `yaml:"contains,omitempty"`
-	Equals   string            `yaml:"equals,omitempty"`
+	Contains StringMatch       `yaml:"contains,omitempty"`
+	Equals   StringMatch       `yaml:"equals,omitempty"`
 }
 
 // TextExpect checks finalMessage (or similar text fields).
 type TextExpect struct {
-	Contains string `yaml:"contains,omitempty"`
-	Equals   string `yaml:"equals,omitempty"`
+	Contains StringMatch `yaml:"contains,omitempty"`
+	Equals   StringMatch `yaml:"equals,omitempty"`
 }
 
 // Load reads path as an eval YAML document, validates it, and returns the Eval.
@@ -131,6 +131,10 @@ func validate(e *Eval, path string) error {
 		return fmt.Errorf("eval: %s: skill %q: missing SKILL.md: %w", path, e.Skill, err)
 	}
 
+	if err := validateStringMatches(e, path); err != nil {
+		return err
+	}
+
 	for filePath, fe := range e.Expects.Files {
 		if fe.Status == "" {
 			continue
@@ -153,6 +157,28 @@ func validate(e *Eval, path string) error {
 	}
 	if !info.IsDir() {
 		return fmt.Errorf("eval: %s: input %q is not a directory", path, e.Input)
+	}
+	return nil
+}
+
+func validateStringMatches(e *Eval, path string) error {
+	if e.Expects.FinalMessage != nil {
+		fm := e.Expects.FinalMessage
+		if err := compileStringMatch(&fm.Contains); err != nil {
+			return fmt.Errorf("eval: %s: finalMessage.contains: invalid regex: %w", path, err)
+		}
+		if err := compileStringMatch(&fm.Equals); err != nil {
+			return fmt.Errorf("eval: %s: finalMessage.equals: invalid regex: %w", path, err)
+		}
+	}
+	for filePath, fe := range e.Expects.Files {
+		if err := compileStringMatch(&fe.Contains); err != nil {
+			return fmt.Errorf("eval: %s: files[%q].contains: invalid regex: %w", path, filePath, err)
+		}
+		if err := compileStringMatch(&fe.Equals); err != nil {
+			return fmt.Errorf("eval: %s: files[%q].equals: invalid regex: %w", path, filePath, err)
+		}
+		e.Expects.Files[filePath] = fe
 	}
 	return nil
 }

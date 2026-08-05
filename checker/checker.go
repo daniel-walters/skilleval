@@ -155,7 +155,7 @@ func checkFiles(r *result.Result, files map[string]eval.FileExpect, workspace st
 			}
 		}
 
-		if fe.Contains == "" && fe.Equals == "" {
+		if !fe.Contains.IsSet() && !fe.Equals.IsSet() {
 			continue
 		}
 		if fe.Status == result.FileDeleted || (ok && outcome.Status == result.FileDeleted) {
@@ -173,18 +173,7 @@ func checkFiles(r *result.Result, files map[string]eval.FileExpect, workspace st
 			})
 			continue
 		}
-		if fe.Contains != "" && !strings.Contains(body, fe.Contains) {
-			failures = append(failures, Failure{
-				Path:   prefix + ".contains",
-				Reason: fmt.Sprintf("file does not contain %q", fe.Contains),
-			})
-		}
-		if fe.Equals != "" && body != fe.Equals {
-			failures = append(failures, Failure{
-				Path:   prefix + ".equals",
-				Reason: "file content does not equal expected value",
-			})
-		}
+		failures = append(failures, checkTextExpects(body, fe.Contains, fe.Equals, prefix, "file", "file content")...)
 	}
 	return failures
 }
@@ -193,18 +182,24 @@ func checkFinalMessage(r *result.Result, e *eval.TextExpect) []Failure {
 	if e == nil {
 		return nil
 	}
+	return checkTextExpects(r.FinalMessage, e.Contains, e.Equals, "finalMessage", "finalMessage", "finalMessage")
+}
+
+func checkTextExpects(haystack string, contains, equals eval.StringMatch, pathPrefix, containsSubject, equalsSubject string) []Failure {
 	var failures []Failure
-	if e.Contains != "" && !strings.Contains(r.FinalMessage, e.Contains) {
-		failures = append(failures, Failure{
-			Path:   "finalMessage.contains",
-			Reason: fmt.Sprintf("finalMessage does not contain %q", e.Contains),
-		})
+	if contains.IsSet() && !contains.MatchContains(haystack) {
+		reason := fmt.Sprintf("%s does not contain %q", containsSubject, contains.String())
+		if contains.IsRegex() {
+			reason = fmt.Sprintf("%s does not match %s", containsSubject, contains.String())
+		}
+		failures = append(failures, Failure{Path: pathPrefix + ".contains", Reason: reason})
 	}
-	if e.Equals != "" && r.FinalMessage != e.Equals {
-		failures = append(failures, Failure{
-			Path:   "finalMessage.equals",
-			Reason: "finalMessage does not equal expected value",
-		})
+	if equals.IsSet() && !equals.MatchEquals(haystack) {
+		reason := fmt.Sprintf("%s does not equal expected value", equalsSubject)
+		if equals.IsRegex() {
+			reason = fmt.Sprintf("%s does not match %s", equalsSubject, equals.String())
+		}
+		failures = append(failures, Failure{Path: pathPrefix + ".equals", Reason: reason})
 	}
 	return failures
 }

@@ -19,6 +19,7 @@ func TestCheckFixtures(t *testing.T) {
 		wantFailPath []string
 	}{
 		{name: "pass", wantPassed: true},
+		{name: "pass-regex", wantPassed: true},
 		{name: "empty-expects", wantPassed: true},
 		{name: "pass-file-deleted", wantPassed: true},
 		{name: "error-status", wantPassed: false, wantFailPath: []string{"run.status"}},
@@ -42,7 +43,13 @@ func TestCheckFixtures(t *testing.T) {
 			wantPassed:   false,
 			wantFailPath: []string{"finalMessage.contains", "finalMessage.equals"},
 		},
+		{
+			name:         "fail-final-message-regex",
+			wantPassed:   false,
+			wantFailPath: []string{"finalMessage.contains", "finalMessage.equals"},
+		},
 		{name: "fail-file-contains", wantPassed: false, wantFailPath: []string{"files[src/foo.go].contains"}},
+		{name: "fail-file-contains-regex", wantPassed: false, wantFailPath: []string{"files[src/foo.go].contains"}},
 		{
 			name:         "fail-many",
 			wantPassed:   false,

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "run_pass",
+  "startedAt": "2026-08-02T10:00:00Z",
+  "finishedAt": "2026-08-02T10:00:12Z",
+  "eval": {
+    "name": "pass-regex",
+    "prompt": "Do the thing",
+    "skill": "helper",
+    "model": "composer-2",
+    "runner": "cursor",
+    "attempt": 1
+  },
+  "status": "finished",
+  "metrics": {
+    "turns": 4,
+    "durationMs": 12000,
+    "toolsUsed": [
+      "read",
+      "edit"
+    ],
+    "toolCalls": [],
+    "usage": {
+      "inputTokens": 100,
+      "outputTokens": 50,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 150
+    },
+    "costUSD": 0.25
+  },
+  "skills": {
+    "activated": [
+      "helper"
+    ]
+  },
+  "outcomes": {
+    "files": {
+      "src/foo.go": {
+        "status": "modified"
+      },
+      "src/new.go": {
+        "status": "created"
+      },
+      "src/gone.go": {
+        "status": "deleted"
+      }
+    }
+  },
+  "error": null,
+  "finalMessage": "Done with refactor."
+}

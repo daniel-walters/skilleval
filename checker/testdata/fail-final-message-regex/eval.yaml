@@ -1,0 +1,8 @@
+schemaVersion: 1
+name: fail-final-message-regex
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  finalMessage:
+    contains: /Refactored/
+    equals: /^Exact$/
