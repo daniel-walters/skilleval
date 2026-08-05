@@ -14,7 +14,7 @@ import (
 	"github.com/daniel-walters/skilleval/result"
 )
 
-//go:embed cursoragent/run.mjs cursoragent/turns.mjs cursoragent/skills.mjs cursoragent/package.json
+//go:embed cursoragent/run.mjs cursoragent/turns.mjs cursoragent/skills.mjs cursoragent/package.json cursoragent/package-lock.json
 var cursorAssets embed.FS
 
 // CursorAgent invokes the embedded Node helper with @cursor/sdk.
@@ -132,7 +132,8 @@ func mapHelperOutput(raw helperOutput) AgentObservables {
 	switch status {
 	case result.StatusFinished, result.StatusError, result.StatusCancelled:
 	default:
-		status = result.StatusFinished
+		// Unknown/future SDK statuses are failures, not successful completion.
+		status = result.StatusError
 	}
 	fallback := result.ToolCallCompleted
 	if status == result.StatusError || status == result.StatusCancelled {
@@ -197,7 +198,7 @@ func prepareCursorHelperDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cursoragent: temp dir: %w", err)
 	}
-	for _, name := range []string{"run.mjs", "turns.mjs", "skills.mjs", "package.json"} {
+	for _, name := range []string{"run.mjs", "turns.mjs", "skills.mjs", "package.json", "package-lock.json"} {
 		data, err := cursorAssets.ReadFile("cursoragent/" + name)
 		if err != nil {
 			return "", fmt.Errorf("cursoragent: embed %s: %w", name, err)
@@ -206,12 +207,12 @@ func prepareCursorHelperDir() (string, error) {
 			return "", fmt.Errorf("cursoragent: write %s: %w", name, err)
 		}
 	}
-	cmd := exec.Command("npm", "install", "--omit=dev", "--no-fund", "--no-audit")
+	cmd := exec.Command("npm", "ci", "--omit=dev", "--no-fund", "--no-audit")
 	cmd.Dir = dir
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("cursoragent: npm install: %w\nstderr: %s", err, stderr.String())
+		return "", fmt.Errorf("cursoragent: npm ci: %w\nstderr: %s", err, stderr.String())
 	}
 	return dir, nil
 }

@@ -62,6 +62,17 @@ func TestMapHelperOutputRunningBecomesErrorOnFailedRun(t *testing.T) {
 	}
 }
 
+func TestMapHelperOutputUnknownStatusIsError(t *testing.T) {
+	obs := mapHelperOutput(helperOutput{Status: "thinking"})
+	if obs.Status != result.StatusError {
+		t.Fatalf("status = %q, want error", obs.Status)
+	}
+	obs = mapHelperOutput(helperOutput{Status: ""})
+	if obs.Status != result.StatusError {
+		t.Fatalf("empty status = %q, want error", obs.Status)
+	}
+}
+
 func TestExtractJSONObjectIgnoresLogLines(t *testing.T) {
 	stdout := []byte(`07:31:54.279 INFO  LocalCursorRulesService load completed meta={durationMs: 29, ruleCount: 0}
 07:31:54.288 INFO  AgentSkillsCursorRulesService load completed meta={durationMs: 36, ruleCount: 18, skillCount: 18}

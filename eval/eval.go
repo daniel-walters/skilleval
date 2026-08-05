@@ -136,6 +136,9 @@ func validate(e *Eval, path string) error {
 	}
 
 	for filePath, fe := range e.Expects.Files {
+		if err := validateWorkspaceRelPath(filePath); err != nil {
+			return fmt.Errorf("eval: %s: files[%q]: %w", path, filePath, err)
+		}
 		if fe.Status == "" {
 			continue
 		}
@@ -157,6 +160,21 @@ func validate(e *Eval, path string) error {
 	}
 	if !info.IsDir() {
 		return fmt.Errorf("eval: %s: input %q is not a directory", path, e.Input)
+	}
+	return nil
+}
+
+// validateWorkspaceRelPath rejects absolute or ..-escaping keys used under expects.files.
+func validateWorkspaceRelPath(rel string) error {
+	if rel == "" {
+		return fmt.Errorf("path must be relative to workspace")
+	}
+	if filepath.IsAbs(rel) || filepath.IsAbs(filepath.FromSlash(rel)) {
+		return fmt.Errorf("path must be relative to workspace")
+	}
+	cleaned := filepath.Clean(filepath.FromSlash(rel))
+	if cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) || filepath.IsAbs(cleaned) {
+		return fmt.Errorf("path must be relative to workspace")
 	}
 	return nil
 }

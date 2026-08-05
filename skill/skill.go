@@ -5,10 +5,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+// namePattern restricts skill names to a single safe path segment so placement
+// under .cursor/skills/<name> cannot escape the attempt workspace.
+var namePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 // Skill is a loaded skill package.
 type Skill struct {
@@ -44,6 +49,9 @@ func Load(path string) (*Skill, error) {
 	name := strings.TrimSpace(fm.Name)
 	if name == "" {
 		return nil, fmt.Errorf("skill: %s: name is required in frontmatter", skillMD)
+	}
+	if !namePattern.MatchString(name) || strings.Contains(name, "..") {
+		return nil, fmt.Errorf("skill: %s: name %q must match %s", skillMD, name, namePattern.String())
 	}
 	absDir, err := filepath.Abs(dir)
 	if err != nil {

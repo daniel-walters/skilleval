@@ -31,4 +31,4 @@ go.work.sum
 
 # Node (Cursor agent helper)
 node_modules/
-package-lock.json
+# package-lock.json under runner/cursoragent is tracked for npm ci

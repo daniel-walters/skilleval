@@ -2,8 +2,11 @@
  * Derive skills.activated from Cursor tool_call events.
  *
  * Cursor loads a skill by reading its SKILL.md (progressive disclosure).
- * A completed `read` of …/{.cursor|.agents}/skills/<name>/SKILL.md means
- * that skill was activated for the run.
+ * A `read` of …/{.cursor|.agents}/skills/<name>/SKILL.md means that skill
+ * was activated for the run.
+ *
+ * The SDK typically puts `args.path` on the `running` event and may omit
+ * `args` on `completed` (replacing it with `result`). Record from either.
  */
 
 const SKILL_MD_RE =
@@ -17,13 +20,14 @@ export function activatedSkillFromReadPath(path) {
 }
 
 /**
- * If event is a completed read of a skill SKILL.md, add its name to activated.
+ * If event is a running or completed read of a skill SKILL.md, add its name.
  * @param {Set<string>} activated
- * @param {{ name?: string, status?: string, args?: { path?: string } }} event
+ * @param {{ name?: string, status?: string, args?: { path?: string }, result?: { path?: string } }} event
  */
 export function noteActivatedSkill(activated, event) {
   if (!event || event.name !== "read") return;
-  if (event.status !== "completed") return;
-  const skill = activatedSkillFromReadPath(event.args?.path);
+  if (event.status !== "running" && event.status !== "completed") return;
+  const path = event.args?.path ?? event.result?.path;
+  const skill = activatedSkillFromReadPath(path);
   if (skill) activated.add(skill);
 }

@@ -121,6 +121,25 @@ expects:
 	}
 }
 
+func TestLoadRejectsEscapingFilePath(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  files:
+    "../secret.txt":
+      contains: "x"
+`)
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for escaping file path")
+	}
+	if !strings.Contains(err.Error(), "relative to workspace") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestLoadRejectsInvalidFinalMessageRegex(t *testing.T) {
 	path := writeTempEvalWithSkill(t, `schemaVersion: 1
 name: x
