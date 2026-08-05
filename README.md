@@ -12,6 +12,8 @@ Core is Go; language SDKs may come later for writing tests in the ecosystem you 
 skilleval run <eval.yaml> --model <ID>
 ```
 
+After the run, expects from the eval YAML are checked against the Result (and attempt workspace when needed). The CLI prints `PASS` or `FAIL` and exits non-zero when the check fails.
+
 Live runs need a Cursor API key. Set `CURSOR_API_KEY` in the process environment, or put it in a `.env` file in the current working directory:
 
 ```bash

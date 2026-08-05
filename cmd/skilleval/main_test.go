@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
+
+	"github.com/daniel-walters/skilleval/checker"
 )
 
 func TestSplitFlagsAndPositionals(t *testing.T) {
@@ -45,4 +48,36 @@ func TestSplitFlagsAndPositionals(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReportVerdict(t *testing.T) {
+	t.Run("pass", func(t *testing.T) {
+		var buf bytes.Buffer
+		err := reportVerdict(&buf, checker.Verdict{Passed: true})
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		if got := buf.String(); got != "PASS\n" {
+			t.Fatalf("output = %q, want %q", got, "PASS\n")
+		}
+	})
+
+	t.Run("fail", func(t *testing.T) {
+		var buf bytes.Buffer
+		err := reportVerdict(&buf, checker.Verdict{
+			Passed: false,
+			Failures: []checker.Failure{
+				{Path: "turns.max", Reason: "turns 12 exceeds max 10"},
+				{Path: "finalMessage.contains", Reason: "finalMessage does not contain \"Done\""},
+			},
+		})
+		if err == nil || err.Error() != "check failed" {
+			t.Fatalf("err = %v, want check failed", err)
+		}
+		got := buf.String()
+		want := "FAIL\n  turns.max: turns 12 exceeds max 10\n  finalMessage.contains: finalMessage does not contain \"Done\"\n"
+		if got != want {
+			t.Fatalf("output = %q, want %q", got, want)
+		}
+	})
 }
