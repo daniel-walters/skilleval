@@ -1,0 +1,15 @@
+schemaVersion: 1
+name: pass-regex
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  files:
+    src/foo.go:
+      status: modified
+      contains: /func Foo\(/
+    src/new.go:
+      status: created
+      equals: /^package main\n$/
+  finalMessage:
+    contains: /Done with \w+\./
+    equals: /^Done with refactor\.$/

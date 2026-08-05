@@ -1,0 +1,9 @@
+schemaVersion: 1
+name: fail-file-contains-regex
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  files:
+    src/foo.go:
+      status: modified
+      contains: /func Missing\(/

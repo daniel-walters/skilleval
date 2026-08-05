@@ -24,11 +24,11 @@ expects:
   files:
     src/foo.go:
       status: modified
-      contains: "func Foo"
+      contains: /func Foo/
     src/new.go:
       status: created
       contains: "package demo"
     src/gone.go:
       status: deleted
   finalMessage:
-    contains: Refactor
+    contains: /Refactor/

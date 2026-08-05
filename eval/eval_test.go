@@ -121,6 +121,43 @@ expects:
 	}
 }
 
+func TestLoadRejectsInvalidFinalMessageRegex(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  finalMessage:
+    contains: /(/
+`)
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for invalid finalMessage.contains regex")
+	}
+	if !strings.Contains(err.Error(), "finalMessage.contains") || !strings.Contains(err.Error(), "invalid regex") {
+		t.Fatalf("error = %v, want finalMessage.contains invalid regex", err)
+	}
+}
+
+func TestLoadRejectsInvalidFileContainsRegex(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  files:
+    a.go:
+      contains: /(/
+`)
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for invalid files[].contains regex")
+	}
+	if !strings.Contains(err.Error(), `files["a.go"].contains`) || !strings.Contains(err.Error(), "invalid regex") {
+		t.Fatalf("error = %v, want files[a.go].contains invalid regex", err)
+	}
+}
+
 func assertGoldenEval(t *testing.T, e *eval.Eval) {
 	t.Helper()
 
@@ -164,18 +201,20 @@ func assertGoldenEval(t *testing.T, e *eval.Eval) {
 		t.Fatalf("files len = %d", len(e.Expects.Files))
 	}
 	foo := e.Expects.Files["src/foo.go"]
-	if foo.Status != result.FileModified || foo.Contains != "func Foo" {
+	if foo.Status != result.FileModified || foo.Contains.String() != "/func Foo/" || !foo.Contains.IsRegex() {
 		t.Fatalf("foo = %#v", foo)
 	}
 	newFile := e.Expects.Files["src/new.go"]
-	if newFile.Status != result.FileCreated || newFile.Contains != "package demo" {
+	if newFile.Status != result.FileCreated || newFile.Contains.String() != "package demo" || newFile.Contains.IsRegex() {
 		t.Fatalf("new = %#v", newFile)
 	}
 	if e.Expects.Files["src/gone.go"].Status != result.FileDeleted {
 		t.Fatalf("gone = %#v", e.Expects.Files["src/gone.go"])
 	}
 
-	if e.Expects.FinalMessage == nil || e.Expects.FinalMessage.Contains != "Refactor" {
+	if e.Expects.FinalMessage == nil ||
+		e.Expects.FinalMessage.Contains.String() != "/Refactor/" ||
+		!e.Expects.FinalMessage.Contains.IsRegex() {
 		t.Fatalf("FinalMessage = %#v", e.Expects.FinalMessage)
 	}
 }
