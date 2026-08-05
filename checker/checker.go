@@ -158,7 +158,16 @@ func checkFiles(r *result.Result, files map[string]eval.FileExpect, workspace st
 		if !fe.Contains.IsSet() && !fe.Equals.IsSet() {
 			continue
 		}
-		if fe.Status == result.FileDeleted || (ok && outcome.Status == result.FileDeleted) {
+		// Content expects require a recorded file change so pre-seeded input
+		// alone cannot satisfy contains/equals.
+		if !ok {
+			failures = append(failures, Failure{
+				Path:   prefix,
+				Reason: "path missing from outcomes.files",
+			})
+			continue
+		}
+		if fe.Status == result.FileDeleted || outcome.Status == result.FileDeleted {
 			failures = append(failures, Failure{
 				Path:   prefix,
 				Reason: "content expects cannot be checked for a deleted file",
@@ -208,15 +217,39 @@ func readWorkspaceFile(workspace, rel string) (string, error) {
 	if workspace == "" {
 		return "", fmt.Errorf("workspace is required for file content checks")
 	}
-	if filepath.IsAbs(rel) || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
-		return "", fmt.Errorf("path %q must be relative to workspace", rel)
+	full, err := containedPath(workspace, rel)
+	if err != nil {
+		return "", err
 	}
-	full := filepath.Join(workspace, filepath.FromSlash(rel))
 	raw, err := os.ReadFile(full)
 	if err != nil {
 		return "", fmt.Errorf("read %s: %w", rel, err)
 	}
 	return string(raw), nil
+}
+
+// containedPath joins workspace and rel, rejecting absolute or escaping paths.
+func containedPath(workspace, rel string) (string, error) {
+	if rel == "" {
+		return "", fmt.Errorf("path %q must be relative to workspace", rel)
+	}
+	if filepath.IsAbs(rel) || filepath.IsAbs(filepath.FromSlash(rel)) {
+		return "", fmt.Errorf("path %q must be relative to workspace", rel)
+	}
+	root, err := filepath.Abs(workspace)
+	if err != nil {
+		return "", fmt.Errorf("workspace: %w", err)
+	}
+	full := filepath.Join(root, filepath.FromSlash(rel))
+	full, err = filepath.Abs(full)
+	if err != nil {
+		return "", fmt.Errorf("path %q: %w", rel, err)
+	}
+	relToRoot, err := filepath.Rel(root, full)
+	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q must be relative to workspace", rel)
+	}
+	return full, nil
 }
 
 func stringSet(values []string) map[string]bool {

@@ -43,19 +43,20 @@ describe("activatedSkillFromReadPath", () => {
 });
 
 describe("noteActivatedSkill", () => {
-  it("records completed skill reads only", () => {
+  it("records skill reads from running args or completed result", () => {
     const activated = new Set();
     noteActivatedSkill(activated, {
       name: "read",
       status: "running",
       args: { path: "/ws/.cursor/skills/demo/SKILL.md" },
     });
-    assert.deepEqual([...activated], []);
+    assert.deepEqual([...activated], ["demo"]);
 
+    // Completed often omits args; path may be on result instead.
     noteActivatedSkill(activated, {
       name: "read",
       status: "completed",
-      args: { path: "/ws/.cursor/skills/demo/SKILL.md" },
+      result: { path: "/ws/.cursor/skills/other/SKILL.md" },
     });
     noteActivatedSkill(activated, {
       name: "read",
@@ -70,8 +71,13 @@ describe("noteActivatedSkill", () => {
     noteActivatedSkill(activated, {
       name: "edit",
       status: "completed",
-      args: { path: "/ws/.cursor/skills/other/SKILL.md" },
+      args: { path: "/ws/.cursor/skills/ignored/SKILL.md" },
     });
-    assert.deepEqual([...activated], ["demo"]);
+    noteActivatedSkill(activated, {
+      name: "read",
+      status: "error",
+      args: { path: "/ws/.cursor/skills/bad/SKILL.md" },
+    });
+    assert.deepEqual([...activated].sort(), ["demo", "other"]);
   });
 });

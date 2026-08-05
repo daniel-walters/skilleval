@@ -100,7 +100,11 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 		}
 	}
 
-	skillDest := filepath.Join(workspace, ".cursor", "skills", sk.Name)
+	skillsRoot := filepath.Join(workspace, ".cursor", "skills")
+	skillDest, err := skillDestUnder(skillsRoot, sk.Name)
+	if err != nil {
+		return nil, workspace, fmt.Errorf("runner: place skill: %w", err)
+	}
 	if err := copyTree(sk.Dir, skillDest); err != nil {
 		return nil, workspace, fmt.Errorf("runner: place skill: %w", err)
 	}
@@ -264,6 +268,30 @@ func hashFile(path string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// skillDestUnder joins skillsRoot and name, ensuring the result stays under skillsRoot.
+func skillDestUnder(skillsRoot, name string) (string, error) {
+	if name == "" || strings.Contains(name, "/") || strings.Contains(name, `\`) || name == ".." || strings.Contains(name, "..") {
+		return "", fmt.Errorf("invalid skill name %q", name)
+	}
+	root, err := filepath.Abs(skillsRoot)
+	if err != nil {
+		return "", err
+	}
+	dest := filepath.Join(root, name)
+	dest, err = filepath.Abs(dest)
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(root, dest)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("skill name %q escapes skills directory", name)
+	}
+	if rel != name {
+		return "", fmt.Errorf("skill name %q escapes skills directory", name)
+	}
+	return dest, nil
 }
 
 func copyTree(src, dst string) error {

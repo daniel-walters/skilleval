@@ -5,11 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/daniel-walters/skilleval/checker"
 	"github.com/daniel-walters/skilleval/eval"
 	"github.com/daniel-walters/skilleval/result"
+	"gopkg.in/yaml.v3"
 )
 
 func TestCheckFixtures(t *testing.T) {
@@ -100,6 +102,71 @@ func TestCheckNilResult(t *testing.T) {
 	if got.Passed || len(got.Failures) != 1 || got.Failures[0].Path != "run" {
 		t.Fatalf("unexpected verdict: %#v", got)
 	}
+}
+
+func TestCheckRejectsPathTraversal(t *testing.T) {
+	root := t.TempDir()
+	workspace := filepath.Join(root, "workspace")
+	if err := os.MkdirAll(workspace, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	secret := filepath.Join(root, "secret.txt")
+	if err := os.WriteFile(secret, []byte("TOPSECRET"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := &result.Result{
+		SchemaVersion: result.SchemaVersion,
+		Status:        result.StatusFinished,
+		Outcomes: result.Outcomes{Files: map[string]result.FileOutcome{
+			"../secret.txt": {Status: result.FileModified},
+		}},
+	}
+	got := checker.Check(r, eval.Expects{
+		Files: map[string]eval.FileExpect{
+			"../secret.txt": {Contains: mustLiteralMatch(t, "TOPSECRET")},
+		},
+	}, workspace)
+	if got.Passed {
+		t.Fatal("expected failure for path traversal")
+	}
+	for _, f := range got.Failures {
+		if f.Path == "files[../secret.txt]" && f.Reason != "" {
+			return
+		}
+	}
+	t.Fatalf("want traversal failure, got %#v", got.Failures)
+}
+
+func TestCheckContentRequiresFileOutcome(t *testing.T) {
+	workspace := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspace, "seeded.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := &result.Result{
+		SchemaVersion: result.SchemaVersion,
+		Status:        result.StatusFinished,
+		Outcomes:      result.Outcomes{Files: map[string]result.FileOutcome{}},
+	}
+	got := checker.Check(r, eval.Expects{
+		Files: map[string]eval.FileExpect{
+			"seeded.go": {Equals: mustLiteralMatch(t, "package main\n")},
+		},
+	}, workspace)
+	if got.Passed {
+		t.Fatal("content expect without outcomes.files entry should fail")
+	}
+	if len(got.Failures) != 1 || got.Failures[0].Path != "files[seeded.go]" {
+		t.Fatalf("failures = %#v", got.Failures)
+	}
+}
+
+func mustLiteralMatch(t *testing.T, s string) eval.StringMatch {
+	t.Helper()
+	var m eval.StringMatch
+	if err := yaml.Unmarshal([]byte(strconv.Quote(s)), &m); err != nil {
+		t.Fatalf("StringMatch: %v", err)
+	}
+	return m
 }
 
 func loadResult(t *testing.T, path string) *result.Result {

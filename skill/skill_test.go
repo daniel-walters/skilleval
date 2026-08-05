@@ -3,6 +3,7 @@ package skill_test
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/daniel-walters/skilleval/skill"
@@ -47,6 +48,26 @@ func TestLoadRejectsMissingName(t *testing.T) {
 	dir := writeSkill(t, "---\ndescription: no name\n---\n\n# X\n")
 	if _, err := skill.Load(dir); err == nil {
 		t.Fatal("expected error for missing name")
+	}
+}
+
+func TestLoadRejectsUnsafeName(t *testing.T) {
+	cases := []string{
+		"/tmp/evil",
+		"../escape",
+		"foo/bar",
+		`foo\bar`,
+		"..",
+		"foo..bar",
+	}
+	for _, name := range cases {
+		t.Run(name, func(t *testing.T) {
+			body := "---\nname: " + strconv.Quote(name) + "\n---\n\n# X\n"
+			dir := writeSkill(t, body)
+			if _, err := skill.Load(dir); err == nil {
+				t.Fatalf("expected error for name %q", name)
+			}
+		})
 	}
 }
 
