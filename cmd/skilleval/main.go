@@ -4,10 +4,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/daniel-walters/skilleval/checker"
 	"github.com/daniel-walters/skilleval/eval"
 	"github.com/daniel-walters/skilleval/result"
 	"github.com/daniel-walters/skilleval/runner"
@@ -104,7 +106,24 @@ func runCmd(args []string) error {
 		return err
 	}
 	fmt.Printf("wrote %s (status=%s workspace=%s)\n", outPath, r.Status, workspace)
-	return nil
+	return reportVerdict(os.Stdout, checker.Check(r, ev.Expects, workspace))
+}
+
+// reportVerdict prints PASS/FAIL and returns an error when the check failed.
+func reportVerdict(w io.Writer, v checker.Verdict) error {
+	if v.Passed {
+		_, err := fmt.Fprintln(w, "PASS")
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "FAIL"); err != nil {
+		return err
+	}
+	for _, f := range v.Failures {
+		if _, err := fmt.Fprintf(w, "  %s: %s\n", f.Path, f.Reason); err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("check failed")
 }
 
 // splitFlagsAndPositionals allows flags before or after the eval path.
