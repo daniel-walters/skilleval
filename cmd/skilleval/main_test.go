@@ -201,3 +201,31 @@ func TestEmitReportBaselineBeforeRetainLatest(t *testing.T) {
 		t.Fatalf("expected delta against prior latest, got %q", buf.String())
 	}
 }
+
+func TestEmitReportBaselineSameAsSummaryPath(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "result.json")
+	sumPath := summaryOutPath(outPath)
+	oldCost := 1.0
+	if err := summary.Write(sumPath, summary.Report{
+		PassRate:   1,
+		AvgCostUSD: &oldCost,
+	}); err != nil {
+		t.Fatalf("seed summary: %v", err)
+	}
+
+	newCost := 4.0
+	var buf bytes.Buffer
+	if err := emitReport(&buf, outPath, summary.Report{
+		PassRate:   1,
+		AvgCostUSD: &newCost,
+	}, reportOpts{
+		baseline: sumPath,
+		evalName: "e",
+	}); err != nil {
+		t.Fatalf("emitReport: %v", err)
+	}
+	if !strings.Contains(buf.String(), "1 → 4") {
+		t.Fatalf("expected delta against prior summary file, got %q", buf.String())
+	}
+}

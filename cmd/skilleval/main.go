@@ -206,6 +206,18 @@ func runMulti(ev *eval.Eval, evalPath, model, outPath string, opts reportOpts) e
 // prints a baseline comparison when requested.
 func emitReport(w io.Writer, outPath string, rep summary.Report, opts reportOpts) error {
 	sumPath := summaryOutPath(outPath)
+
+	// Load baseline before Write/Retain so --baseline can be the same path as
+	// the summary about to be overwritten (or history …/latest.json).
+	var base *summary.Report
+	if opts.baseline != "" {
+		var err error
+		base, err = summary.Load(opts.baseline)
+		if err != nil {
+			return err
+		}
+	}
+
 	if err := summary.Write(sumPath, rep); err != nil {
 		return err
 	}
@@ -214,16 +226,6 @@ func emitReport(w io.Writer, outPath string, rep summary.Report, opts reportOpts
 	}
 	if err := printSummary(w, rep); err != nil {
 		return err
-	}
-
-	// Load baseline before Retain so --baseline …/latest.json still sees the prior run.
-	var base *summary.Report
-	if opts.baseline != "" {
-		var err error
-		base, err = summary.Load(opts.baseline)
-		if err != nil {
-			return err
-		}
 	}
 
 	if opts.historyDir != "" {
