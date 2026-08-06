@@ -14,6 +14,8 @@ skilleval run <eval.yaml> --model <ID>
 
 After the run, expects from the eval YAML are checked against the Result (and attempt workspace when needed). The CLI prints `PASS` or `FAIL` and exits non-zero when the check fails.
 
+Every run also writes a summary JSON beside `--out` (default `result-summary.json`) with `passRate` and average metrics, including single-attempt runs.
+
 ### Multi-run batches
 
 Set `attempts` in the eval YAML to run the same eval more than once:
@@ -32,6 +34,32 @@ expects: ...
 Each attempt still gets its own Result and `PASS`/`FAIL`. When `attempts` is greater than 1, the CLI also writes per-attempt files derived from `--out` (default `result.json`) — e.g. `result-1.json`, `result-2.json` — plus `result-summary.json`, and prints aggregate `passRate`, `avgTurns`, and `avgCostUSD` (when available).
 
 Batch exit status is **not** fail-on-any-attempt. The process exits non-zero only when `passRate.min` is set and the batch pass rate is below that threshold. Omit `passRate` to treat multi-run as informational (exit 0 after the summary, barring harness errors). Single-attempt runs (`attempts` omitted or `1`) keep the original expect-based pass/fail exit behavior.
+
+### History and comparison
+
+Retain summaries across runs with `--history`:
+
+```bash
+skilleval run eval.yaml --model <ID> --history .skilleval/history
+```
+
+That archives each summary under `.skilleval/history/<eval-name>/<timestamp>.json` and updates `latest.json` in the same folder.
+
+Compare the current run to a prior summary with `--baseline` (informational deltas only — does not change exit status):
+
+```bash
+skilleval run eval.yaml --model <ID> \
+  --history .skilleval/history \
+  --baseline .skilleval/history/refactor-helper/latest.json
+```
+
+Or compare two summary files without re-running:
+
+```bash
+skilleval compare result-summary.json .skilleval/history/refactor-helper/latest.json
+```
+
+In CI, upload the current `*-summary.json` as an artifact; on the next job, download the prior summary and pass it as `--baseline`.
 
 Live runs need a Cursor API key. Set `CURSOR_API_KEY` in the process environment, or put it in a `.env` file in the current working directory:
 

@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/daniel-walters/skilleval/checker"
+	"github.com/daniel-walters/skilleval/history"
 	"github.com/daniel-walters/skilleval/summary"
 )
 
@@ -119,5 +122,110 @@ func TestPrintSummary(t *testing.T) {
 	want := "---\npassRate: 0.75 (3/4)\navgTurns: 12.5\navgCostUSD: 0.4\n"
 	if got != want {
 		t.Fatalf("output = %q, want %q", got, want)
+	}
+}
+
+func TestEmitReportWritesSummaryAndCompares(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "result.json")
+	baselinePath := filepath.Join(dir, "baseline.json")
+	cost := 1.0
+	if err := summary.Write(baselinePath, summary.Report{
+		Attempts:   1,
+		Passed:     1,
+		PassRate:   1,
+		AvgCostUSD: &cost,
+	}); err != nil {
+		t.Fatalf("Write baseline: %v", err)
+	}
+
+	histDir := filepath.Join(dir, "hist")
+	curCost := 2.0
+	var buf bytes.Buffer
+	err := emitReport(&buf, outPath, summary.Report{
+		Attempts:   1,
+		Passed:     1,
+		PassRate:   1,
+		AvgCostUSD: &curCost,
+	}, reportOpts{
+		historyDir: histDir,
+		baseline:   baselinePath,
+		evalName:   "sample",
+	})
+	if err != nil {
+		t.Fatalf("emitReport: %v", err)
+	}
+
+	sumPath := filepath.Join(dir, "result-summary.json")
+	if _, err := summary.Load(sumPath); err != nil {
+		t.Fatalf("Load summary: %v", err)
+	}
+	if _, err := summary.Load(filepath.Join(histDir, "sample", "latest.json")); err != nil {
+		t.Fatalf("Load retained latest: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "vs baseline:") || !strings.Contains(out, "avgCostUSD:") {
+		t.Fatalf("missing compare output: %q", out)
+	}
+	if !strings.Contains(out, "retained ") {
+		t.Fatalf("missing retained line: %q", out)
+	}
+}
+
+func TestEmitReportBaselineBeforeRetainLatest(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "result.json")
+	histDir := filepath.Join(dir, "hist")
+	oldCost := 1.0
+	if _, err := history.Retain(histDir, "e", summary.Report{
+		PassRate:   1,
+		AvgCostUSD: &oldCost,
+	}); err != nil {
+		t.Fatalf("seed history: %v", err)
+	}
+	baseline := filepath.Join(histDir, "e", "latest.json")
+
+	newCost := 3.0
+	var buf bytes.Buffer
+	if err := emitReport(&buf, outPath, summary.Report{
+		PassRate:   1,
+		AvgCostUSD: &newCost,
+	}, reportOpts{
+		historyDir: histDir,
+		baseline:   baseline,
+		evalName:   "e",
+	}); err != nil {
+		t.Fatalf("emitReport: %v", err)
+	}
+	if !strings.Contains(buf.String(), "1 → 3") {
+		t.Fatalf("expected delta against prior latest, got %q", buf.String())
+	}
+}
+
+func TestEmitReportBaselineSameAsSummaryPath(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "result.json")
+	sumPath := summaryOutPath(outPath)
+	oldCost := 1.0
+	if err := summary.Write(sumPath, summary.Report{
+		PassRate:   1,
+		AvgCostUSD: &oldCost,
+	}); err != nil {
+		t.Fatalf("seed summary: %v", err)
+	}
+
+	newCost := 4.0
+	var buf bytes.Buffer
+	if err := emitReport(&buf, outPath, summary.Report{
+		PassRate:   1,
+		AvgCostUSD: &newCost,
+	}, reportOpts{
+		baseline: sumPath,
+		evalName: "e",
+	}); err != nil {
+		t.Fatalf("emitReport: %v", err)
+	}
+	if !strings.Contains(buf.String(), "1 → 4") {
+		t.Fatalf("expected delta against prior summary file, got %q", buf.String())
 	}
 }
