@@ -9,9 +9,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/daniel-walters/skilleval/result"
+	"github.com/daniel-walters/skilleval/skill"
 )
 
 //go:embed cursoragent/run.mjs cursoragent/turns.mjs cursoragent/skills.mjs cursoragent/package.json cursoragent/package-lock.json
@@ -33,6 +35,19 @@ type CursorAgent struct {
 // DefaultAgent returns the Cursor Node @cursor/sdk agent adapter.
 func DefaultAgent() Agent {
 	return &CursorAgent{}
+}
+
+// RunnerID implements Agent.
+func (a *CursorAgent) RunnerID() string { return "cursor" }
+
+// PrepareWorkspace places the skill under .cursor/skills/<name>/.
+func (a *CursorAgent) PrepareWorkspace(workspace string, sk *skill.Skill) error {
+	return PlaceSkillUnder(workspace, []string{".cursor", "skills"}, sk)
+}
+
+// IgnoreOutcomePath skips Cursor's private skill tree from file outcomes.
+func (a *CursorAgent) IgnoreOutcomePath(rel string) bool {
+	return rel == ".cursor" || strings.HasPrefix(rel, ".cursor/")
 }
 
 // Run executes one Cursor agent attempt and returns normalized observables.
@@ -120,6 +135,7 @@ type helperOutput struct {
 	ToolCalls    []helperToolCall `json:"toolCalls"`
 	Usage        result.Usage     `json:"usage"`
 	Skills       result.Skills    `json:"skills"`
+	CostUSD      *float64         `json:"costUSD"`
 }
 
 type helperToolCall struct {
@@ -172,6 +188,7 @@ func mapHelperOutput(raw helperOutput) AgentObservables {
 		Skills: result.Skills{
 			Activated: activated,
 		},
+		CostUSD: raw.CostUSD,
 	}
 }
 

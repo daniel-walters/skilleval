@@ -53,10 +53,19 @@ type AgentObservables struct {
 	ToolCalls    []result.ToolCall
 	Usage        result.Usage
 	Skills       result.Skills
+	// CostUSD, when set, is used for Result.metrics.costUSD instead of rates.json.
+	CostUSD *float64
 }
 
 // Agent executes a prompt against a workspace and returns observables.
+// Each implementation owns skill placement, runner identity, and outcome path skips.
 type Agent interface {
+	// RunnerID is recorded on Result.eval.runner (e.g. "cursor", "claude").
+	RunnerID() string
+	// PrepareWorkspace places the loaded skill for this backend.
+	PrepareWorkspace(workspace string, sk *skill.Skill) error
+	// IgnoreOutcomePath excludes agent-private trees from file outcomes.
+	IgnoreOutcomePath(rel string) bool
 	Run(ctx context.Context, req AgentRequest) (AgentObservables, error)
 }
 
@@ -101,16 +110,11 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 		}
 	}
 
-	skillsRoot := filepath.Join(workspace, ".cursor", "skills")
-	skillDest, err := skillDestUnder(skillsRoot, sk.Name)
-	if err != nil {
-		return nil, workspace, fmt.Errorf("runner: place skill: %w", err)
-	}
-	if err := copyTree(sk.Dir, skillDest); err != nil {
+	if err := agent.PrepareWorkspace(workspace, sk); err != nil {
 		return nil, workspace, fmt.Errorf("runner: place skill: %w", err)
 	}
 
-	before, err := snapshot(workspace)
+	before, err := snapshot(workspace, agent.IgnoreOutcomePath)
 	if err != nil {
 		return nil, workspace, fmt.Errorf("runner: snapshot: %w", err)
 	}
@@ -127,7 +131,7 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 		return nil, workspace, fmt.Errorf("runner: agent: %w", err)
 	}
 
-	after, err := snapshot(workspace)
+	after, err := snapshot(workspace, agent.IgnoreOutcomePath)
 	if err != nil {
 		return nil, workspace, fmt.Errorf("runner: snapshot after: %w", err)
 	}
@@ -162,6 +166,11 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 		id = fmt.Sprintf("run_%d", startedAt.UnixNano())
 	}
 
+	costUSD := obs.CostUSD
+	if costUSD == nil {
+		costUSD = cost.USD(opts.Model, obs.Usage)
+	}
+
 	r := &result.Result{
 		SchemaVersion: result.SchemaVersion,
 		ID:            id,
@@ -172,7 +181,7 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 			Prompt:        ev.Prompt,
 			Skill:         sk.Name,
 			Model:         opts.Model,
-			Runner:        "cursor",
+			Runner:        agent.RunnerID(),
 			Attempt:       attempt,
 			TotalAttempts: opts.TotalAttempts,
 		},
@@ -183,7 +192,7 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 			ToolsUsed:  toolsUsed,
 			ToolCalls:  toolCalls,
 			Usage:      obs.Usage,
-			CostUSD:    cost.USD(opts.Model, obs.Usage),
+			CostUSD:    costUSD,
 		},
 		Skills: result.Skills{
 			Activated: activated,
@@ -201,7 +210,7 @@ type fileMeta struct {
 	hash string
 }
 
-func snapshot(root string) (map[string]fileMeta, error) {
+func snapshot(root string, ignore func(rel string) bool) (map[string]fileMeta, error) {
 	out := make(map[string]fileMeta)
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -215,7 +224,7 @@ func snapshot(root string) (map[string]fileMeta, error) {
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
-		if shouldSkip(rel) {
+		if ignore != nil && ignore(rel) {
 			if d.IsDir() {
 				return fs.SkipDir
 			}
@@ -234,8 +243,18 @@ func snapshot(root string) (map[string]fileMeta, error) {
 	return out, err
 }
 
-func shouldSkip(rel string) bool {
-	return rel == ".cursor" || strings.HasPrefix(rel, ".cursor/")
+// PlaceSkillUnder copies sk into workspace/<skillsRel...>/<name>/.
+func PlaceSkillUnder(workspace string, skillsRel []string, sk *skill.Skill) error {
+	if sk == nil {
+		return fmt.Errorf("skill is nil")
+	}
+	parts := append([]string{workspace}, skillsRel...)
+	skillsRoot := filepath.Join(parts...)
+	skillDest, err := skillDestUnder(skillsRoot, sk.Name)
+	if err != nil {
+		return err
+	}
+	return copyTree(sk.Dir, skillDest)
 }
 
 func diffSnapshots(before, after map[string]fileMeta) map[string]result.FileOutcome {
