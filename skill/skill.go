@@ -12,7 +12,7 @@ import (
 )
 
 // namePattern restricts skill names to a single safe path segment so placement
-// under .cursor/skills/<name> cannot escape the attempt workspace.
+// under a runner skills directory cannot escape the attempt workspace.
 var namePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 // Skill is a loaded skill package.

@@ -48,12 +48,14 @@ func main() {
 
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `Usage:
-  skilleval run <eval.yaml> [--model ID] [--out result.json] [--history DIR] [--baseline summary.json]
+  skilleval run <eval.yaml> [--model ID] [--runner cursor|claude] [--out result.json] [--history DIR] [--baseline summary.json]
   skilleval compare <current-summary.json> <baseline-summary.json>
 
 Credentials:
-  CURSOR_API_KEY from the process environment, or a .env file in the
-  current directory (process environment wins if both are set).
+  Cursor runner: CURSOR_API_KEY from the process environment, or a .env
+  file in the current directory (process environment wins if both are set).
+  Claude runner: ANTHROPIC_API_KEY, or an existing claude auth login.
+  Both runners need Node.js for their embedded helpers.
 
 `)
 }
@@ -67,7 +69,8 @@ type reportOpts struct {
 func runCmd(args []string) error {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
-	model := fs.String("model", "", "model id for the Cursor agent")
+	model := fs.String("model", "", "model id for the agent runner")
+	runnerName := fs.String("runner", "cursor", "agent runtime: cursor or claude")
 	out := fs.String("out", "result.json", "path to write Result JSON")
 	historyDir := fs.String("history", "", "directory to retain summary history")
 	baseline := fs.String("baseline", "", "path to a prior summary JSON to compare against")
@@ -98,6 +101,10 @@ func runCmd(args []string) error {
 	if *model == "" {
 		return fmt.Errorf("run: --model is required")
 	}
+	agent, err := runner.LookupAgent(*runnerName)
+	if err != nil {
+		return fmt.Errorf("run: %w", err)
+	}
 
 	outPath := *out
 	if !filepath.IsAbs(outPath) {
@@ -124,20 +131,22 @@ func runCmd(args []string) error {
 		opts.baseline = abs
 	}
 
-	if ev.Attempts <= 1 {
-		return runSingle(ev, evalPath, *model, outPath, opts)
+	runOpts := runner.Options{
+		Model: *model,
+		Agent: agent,
 	}
-	return runMulti(ev, evalPath, *model, outPath, opts)
+	if ev.Attempts <= 1 {
+		return runSingle(ev, evalPath, outPath, runOpts, opts)
+	}
+	return runMulti(ev, evalPath, outPath, runOpts, opts)
 }
 
-func runSingle(ev *eval.Eval, evalPath, model, outPath string, opts reportOpts) error {
+func runSingle(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, opts reportOpts) error {
 	hb := startHeartbeat(os.Stderr, stderrIsTerminal())
 	defer hb.Stop()
 
-	r, workspace, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
-		Model:   model,
-		Attempt: 1,
-	})
+	runOpts.Attempt = 1
+	r, workspace, err := runner.Run(context.Background(), ev, evalPath, runOpts)
 	if err != nil {
 		return err
 	}
@@ -161,17 +170,16 @@ func runSingle(ev *eval.Eval, evalPath, model, outPath string, opts reportOpts) 
 	return nil
 }
 
-func runMulti(ev *eval.Eval, evalPath, model, outPath string, opts reportOpts) error {
+func runMulti(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, opts reportOpts) error {
 	n := ev.Attempts
 	attempts := make([]summary.Attempt, 0, n)
 
 	for i := 1; i <= n; i++ {
 		hb := startHeartbeat(os.Stderr, stderrIsTerminal())
-		r, workspace, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
-			Model:         model,
-			Attempt:       i,
-			TotalAttempts: n,
-		})
+		attemptOpts := runOpts
+		attemptOpts.Attempt = i
+		attemptOpts.TotalAttempts = n
+		r, workspace, err := runner.Run(context.Background(), ev, evalPath, attemptOpts)
 		hb.Stop()
 		if err != nil {
 			fmt.Printf("attempt %d/%d: error: %v\n", i, n, err)
