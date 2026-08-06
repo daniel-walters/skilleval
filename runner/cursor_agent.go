@@ -135,6 +135,7 @@ type helperOutput struct {
 	ToolCalls    []helperToolCall `json:"toolCalls"`
 	Usage        result.Usage     `json:"usage"`
 	Skills       result.Skills    `json:"skills"`
+	CostUSD      *float64         `json:"costUSD"`
 }
 
 type helperToolCall struct {
@@ -187,6 +188,7 @@ func mapHelperOutput(raw helperOutput) AgentObservables {
 		Skills: result.Skills{
 			Activated: activated,
 		},
+		CostUSD: raw.CostUSD,
 	}
 }
 
