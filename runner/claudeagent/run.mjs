@@ -11,6 +11,7 @@ for (const method of ["log", "info", "warn", "debug"]) {
 }
 
 const { query } = await import("@anthropic-ai/claude-agent-sdk");
+const { activatedSkillFromInput } = await import("./skills.mjs");
 
 function parseArgs(argv) {
   const out = { cwd: "", model: "", prompt: "", skill: "" };
@@ -98,8 +99,8 @@ async function main() {
           toolsUsedSet.add(name);
           toolCalls.push({ name, status: "completed" });
           if (name === "Skill") {
-            const skillName = block.input?.skill;
-            if (typeof skillName === "string" && skillName) {
+            const skillName = activatedSkillFromInput(block.input);
+            if (skillName) {
               activatedSkills.add(skillName);
             }
           }
@@ -159,17 +160,20 @@ async function main() {
     process.stdout.write(JSON.stringify(out) + "\n");
   } catch (err) {
     const out = {
-      id: "",
+      id: resultMsg?.session_id ?? "",
       status: "error",
       finalMessage: "",
       error: err?.message ?? String(err),
-      durationMs: 0,
-      turns: 0,
-      toolsUsed: [],
-      toolCalls: [],
-      usage: emptyUsage(),
-      skills: { activated: [] },
-      costUSD: null,
+      durationMs: resultMsg?.duration_ms ?? 0,
+      turns: resultMsg?.num_turns ?? 0,
+      toolsUsed: [...toolsUsedSet],
+      toolCalls,
+      usage: mapUsage(resultMsg?.usage),
+      skills: { activated: [...activatedSkills] },
+      costUSD:
+        typeof resultMsg?.total_cost_usd === "number"
+          ? resultMsg.total_cost_usd
+          : null,
     };
     process.stdout.write(JSON.stringify(out) + "\n");
   }
