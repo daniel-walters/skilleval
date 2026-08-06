@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/daniel-walters/skilleval/checker"
 	"github.com/daniel-walters/skilleval/eval"
+	"github.com/daniel-walters/skilleval/history"
 	"github.com/daniel-walters/skilleval/result"
 	"github.com/daniel-walters/skilleval/runner"
 	"github.com/daniel-walters/skilleval/summary"
@@ -32,6 +32,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "skilleval: %v\n", err)
 			os.Exit(1)
 		}
+	case "compare":
+		if err := compareCmd(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "skilleval: %v\n", err)
+			os.Exit(1)
+		}
 	case "-h", "--help", "help":
 		printUsage()
 	default:
@@ -43,7 +48,8 @@ func main() {
 
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `Usage:
-  skilleval run <eval.yaml> [--model ID] [--out result.json]
+  skilleval run <eval.yaml> [--model ID] [--out result.json] [--history DIR] [--baseline summary.json]
+  skilleval compare <current-summary.json> <baseline-summary.json>
 
 Credentials:
   CURSOR_API_KEY from the process environment, or a .env file in the
@@ -52,11 +58,19 @@ Credentials:
 `)
 }
 
+type reportOpts struct {
+	historyDir string
+	baseline   string
+	evalName   string
+}
+
 func runCmd(args []string) error {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	model := fs.String("model", "", "model id for the Cursor agent")
 	out := fs.String("out", "result.json", "path to write Result JSON")
+	historyDir := fs.String("history", "", "directory to retain summary history")
+	baseline := fs.String("baseline", "", "path to a prior summary JSON to compare against")
 
 	flagArgs, positional, err := splitFlagsAndPositionals(args)
 	if err != nil {
@@ -94,13 +108,29 @@ func runCmd(args []string) error {
 		outPath = abs
 	}
 
-	if ev.Attempts <= 1 {
-		return runSingle(ev, evalPath, *model, outPath)
+	opts := reportOpts{evalName: ev.Name}
+	if *historyDir != "" {
+		abs, err := filepath.Abs(*historyDir)
+		if err != nil {
+			return err
+		}
+		opts.historyDir = abs
 	}
-	return runMulti(ev, evalPath, *model, outPath)
+	if *baseline != "" {
+		abs, err := filepath.Abs(*baseline)
+		if err != nil {
+			return err
+		}
+		opts.baseline = abs
+	}
+
+	if ev.Attempts <= 1 {
+		return runSingle(ev, evalPath, *model, outPath, opts)
+	}
+	return runMulti(ev, evalPath, *model, outPath, opts)
 }
 
-func runSingle(ev *eval.Eval, evalPath, model, outPath string) error {
+func runSingle(ev *eval.Eval, evalPath, model, outPath string, opts reportOpts) error {
 	hb := startHeartbeat(os.Stderr, stderrIsTerminal())
 	defer hb.Stop()
 
@@ -115,10 +145,23 @@ func runSingle(ev *eval.Eval, evalPath, model, outPath string) error {
 		return err
 	}
 	fmt.Printf("wrote %s (status=%s workspace=%s)\n", outPath, r.Status, workspace)
-	return reportVerdict(os.Stdout, checker.Check(r, ev.Expects, workspace))
+
+	v := checker.Check(r, ev.Expects, workspace)
+	if err := printVerdict(os.Stdout, v); err != nil {
+		return err
+	}
+
+	rep := summary.Aggregate([]summary.Attempt{{Result: r, Verdict: v}})
+	if err := emitReport(os.Stdout, outPath, rep, opts); err != nil {
+		return err
+	}
+	if !v.Passed {
+		return fmt.Errorf("check failed")
+	}
+	return nil
 }
 
-func runMulti(ev *eval.Eval, evalPath, model, outPath string) error {
+func runMulti(ev *eval.Eval, evalPath, model, outPath string, opts reportOpts) error {
 	n := ev.Attempts
 	attempts := make([]summary.Attempt, 0, n)
 
@@ -150,18 +193,93 @@ func runMulti(ev *eval.Eval, evalPath, model, outPath string) error {
 	}
 
 	rep := summary.Aggregate(attempts)
-	sumPath := summaryOutPath(outPath)
-	if err := writeSummary(sumPath, rep); err != nil {
-		return err
-	}
-	fmt.Printf("wrote %s\n", sumPath)
-	if err := printSummary(os.Stdout, rep); err != nil {
+	if err := emitReport(os.Stdout, outPath, rep, opts); err != nil {
 		return err
 	}
 	if ev.PassRate != nil && ev.PassRate.Min != nil && !summary.MeetsPassRate(rep, *ev.PassRate.Min) {
 		return fmt.Errorf("pass rate %g below min %g", rep.PassRate, *ev.PassRate.Min)
 	}
 	return nil
+}
+
+// emitReport writes the summary beside --out, optionally retains history, and
+// prints a baseline comparison when requested.
+func emitReport(w io.Writer, outPath string, rep summary.Report, opts reportOpts) error {
+	sumPath := summaryOutPath(outPath)
+	if err := summary.Write(sumPath, rep); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "wrote %s\n", sumPath); err != nil {
+		return err
+	}
+	if err := printSummary(w, rep); err != nil {
+		return err
+	}
+
+	// Load baseline before Retain so --baseline …/latest.json still sees the prior run.
+	var base *summary.Report
+	if opts.baseline != "" {
+		var err error
+		base, err = summary.Load(opts.baseline)
+		if err != nil {
+			return err
+		}
+	}
+
+	if opts.historyDir != "" {
+		retained, err := history.Retain(opts.historyDir, opts.evalName, rep)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "retained %s\n", retained); err != nil {
+			return err
+		}
+	}
+
+	if base != nil {
+		if err := summary.FormatDiff(w, summary.Compare(rep, *base)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func compareCmd(args []string) error {
+	flagArgs, positional, err := splitFlagsAndPositionals(args)
+	if err != nil {
+		return err
+	}
+	if len(flagArgs) > 0 {
+		return fmt.Errorf("compare: unexpected flags")
+	}
+	if len(positional) != 2 {
+		return fmt.Errorf("compare: expected <current-summary.json> <baseline-summary.json>")
+	}
+	currentPath, baselinePath := positional[0], positional[1]
+	if !filepath.IsAbs(currentPath) {
+		abs, err := filepath.Abs(currentPath)
+		if err != nil {
+			return err
+		}
+		currentPath = abs
+	}
+	if !filepath.IsAbs(baselinePath) {
+		abs, err := filepath.Abs(baselinePath)
+		if err != nil {
+			return err
+		}
+		baselinePath = abs
+	}
+
+	current, err := summary.Load(currentPath)
+	if err != nil {
+		return err
+	}
+	baseline, err := summary.Load(baselinePath)
+	if err != nil {
+		return err
+	}
+	return summary.FormatDiff(os.Stdout, summary.Compare(*current, *baseline))
 }
 
 // attemptOutPath returns out unchanged for a single attempt, otherwise stem-N.ext.
@@ -179,18 +297,6 @@ func summaryOutPath(out string) string {
 	ext := filepath.Ext(out)
 	stem := strings.TrimSuffix(out, ext)
 	return stem + "-summary" + ext
-}
-
-func writeSummary(path string, rep summary.Report) error {
-	raw, err := json.MarshalIndent(rep, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode summary: %w", err)
-	}
-	raw = append(raw, '\n')
-	if err := os.WriteFile(path, raw, 0o644); err != nil {
-		return fmt.Errorf("write summary %s: %w", path, err)
-	}
-	return nil
 }
 
 func printSummary(w io.Writer, rep summary.Report) error {
