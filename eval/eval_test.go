@@ -106,6 +106,91 @@ func TestLoadRejectsSkillWithoutSKILLMD(t *testing.T) {
 	}
 }
 
+func TestLoadAttemptsAndPassRate(t *testing.T) {
+	t.Run("explicit attempts and passRate", func(t *testing.T) {
+		path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+attempts: 10
+passRate:
+  min: 0.8
+`)
+		e, err := eval.Load(path)
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if e.Attempts != 10 {
+			t.Fatalf("Attempts = %d, want 10", e.Attempts)
+		}
+		if e.PassRate == nil || e.PassRate.Min == nil || *e.PassRate.Min != 0.8 {
+			t.Fatalf("PassRate = %#v", e.PassRate)
+		}
+	})
+
+	t.Run("omitted attempts defaults to 1", func(t *testing.T) {
+		path := writeTempEvalWithSkill(t, "schemaVersion: 1\nname: x\nprompt: p\nskill: skill-dir\n")
+		e, err := eval.Load(path)
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if e.Attempts != 1 {
+			t.Fatalf("Attempts = %d, want 1", e.Attempts)
+		}
+	})
+
+	t.Run("non-positive attempts defaults to 1", func(t *testing.T) {
+		path := writeTempEvalWithSkill(t, "schemaVersion: 1\nname: x\nprompt: p\nskill: skill-dir\nattempts: 0\n")
+		e, err := eval.Load(path)
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if e.Attempts != 1 {
+			t.Fatalf("Attempts = %d, want 1", e.Attempts)
+		}
+	})
+}
+
+func TestLoadRejectsInvalidPassRate(t *testing.T) {
+	t.Run("missing min", func(t *testing.T) {
+		path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+passRate: {}
+`)
+		if _, err := eval.Load(path); err == nil {
+			t.Fatal("expected error for passRate without min")
+		}
+	})
+
+	t.Run("min below 0", func(t *testing.T) {
+		path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+passRate:
+  min: -0.1
+`)
+		if _, err := eval.Load(path); err == nil {
+			t.Fatal("expected error for passRate.min < 0")
+		}
+	})
+
+	t.Run("min above 1", func(t *testing.T) {
+		path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+passRate:
+  min: 1.1
+`)
+		if _, err := eval.Load(path); err == nil {
+			t.Fatal("expected error for passRate.min > 1")
+		}
+	})
+}
+
 func TestLoadRejectsInvalidFileStatus(t *testing.T) {
 	path := writeTempEvalWithSkill(t, `schemaVersion: 1
 name: x
@@ -194,6 +279,12 @@ func assertGoldenEval(t *testing.T, e *eval.Eval) {
 	}
 	if e.Input != "fixtures/refactor-helper" {
 		t.Fatalf("Input = %q", e.Input)
+	}
+	if e.Attempts != 1 {
+		t.Fatalf("Attempts = %d, want 1 (default)", e.Attempts)
+	}
+	if e.PassRate != nil {
+		t.Fatalf("PassRate = %#v, want nil", e.PassRate)
 	}
 
 	if e.Expects.Turns == nil || e.Expects.Turns.Max == nil || *e.Expects.Turns.Max != 15 {

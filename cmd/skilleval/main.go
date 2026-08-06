@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"github.com/daniel-walters/skilleval/eval"
 	"github.com/daniel-walters/skilleval/result"
 	"github.com/daniel-walters/skilleval/runner"
+	"github.com/daniel-walters/skilleval/summary"
 )
 
 func main() {
@@ -83,17 +85,6 @@ func runCmd(args []string) error {
 		return fmt.Errorf("run: --model is required")
 	}
 
-	hb := startHeartbeat(os.Stderr, stderrIsTerminal())
-	defer hb.Stop()
-
-	r, workspace, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
-		Model:   *model,
-		Attempt: 1,
-	})
-	if err != nil {
-		return err
-	}
-
 	outPath := *out
 	if !filepath.IsAbs(outPath) {
 		abs, err := filepath.Abs(outPath)
@@ -102,6 +93,24 @@ func runCmd(args []string) error {
 		}
 		outPath = abs
 	}
+
+	if ev.Attempts <= 1 {
+		return runSingle(ev, evalPath, *model, outPath)
+	}
+	return runMulti(ev, evalPath, *model, outPath)
+}
+
+func runSingle(ev *eval.Eval, evalPath, model, outPath string) error {
+	hb := startHeartbeat(os.Stderr, stderrIsTerminal())
+	defer hb.Stop()
+
+	r, workspace, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
+		Model:   model,
+		Attempt: 1,
+	})
+	if err != nil {
+		return err
+	}
 	if err := result.Write(outPath, r); err != nil {
 		return err
 	}
@@ -109,8 +118,108 @@ func runCmd(args []string) error {
 	return reportVerdict(os.Stdout, checker.Check(r, ev.Expects, workspace))
 }
 
-// reportVerdict prints PASS/FAIL and returns an error when the check failed.
-func reportVerdict(w io.Writer, v checker.Verdict) error {
+func runMulti(ev *eval.Eval, evalPath, model, outPath string) error {
+	n := ev.Attempts
+	attempts := make([]summary.Attempt, 0, n)
+
+	for i := 1; i <= n; i++ {
+		hb := startHeartbeat(os.Stderr, stderrIsTerminal())
+		r, workspace, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
+			Model:         model,
+			Attempt:       i,
+			TotalAttempts: n,
+		})
+		hb.Stop()
+		if err != nil {
+			fmt.Printf("attempt %d/%d: error: %v\n", i, n, err)
+			attempts = append(attempts, summary.Attempt{Err: err})
+			continue
+		}
+
+		attemptPath := attemptOutPath(outPath, i, n)
+		if err := result.Write(attemptPath, r); err != nil {
+			return err
+		}
+		fmt.Printf("attempt %d/%d: wrote %s (status=%s workspace=%s)\n", i, n, attemptPath, r.Status, workspace)
+
+		v := checker.Check(r, ev.Expects, workspace)
+		if err := printVerdict(os.Stdout, v); err != nil {
+			return err
+		}
+		attempts = append(attempts, summary.Attempt{Result: r, Verdict: v})
+	}
+
+	rep := summary.Aggregate(attempts)
+	sumPath := summaryOutPath(outPath)
+	if err := writeSummary(sumPath, rep); err != nil {
+		return err
+	}
+	fmt.Printf("wrote %s\n", sumPath)
+	if err := printSummary(os.Stdout, rep); err != nil {
+		return err
+	}
+	if ev.PassRate != nil && ev.PassRate.Min != nil && !summary.MeetsPassRate(rep, *ev.PassRate.Min) {
+		return fmt.Errorf("pass rate %g below min %g", rep.PassRate, *ev.PassRate.Min)
+	}
+	return nil
+}
+
+// attemptOutPath returns out unchanged for a single attempt, otherwise stem-N.ext.
+func attemptOutPath(out string, attempt, total int) string {
+	if total <= 1 {
+		return out
+	}
+	ext := filepath.Ext(out)
+	stem := strings.TrimSuffix(out, ext)
+	return fmt.Sprintf("%s-%d%s", stem, attempt, ext)
+}
+
+// summaryOutPath returns stem-summary.ext beside the --out path.
+func summaryOutPath(out string) string {
+	ext := filepath.Ext(out)
+	stem := strings.TrimSuffix(out, ext)
+	return stem + "-summary" + ext
+}
+
+func writeSummary(path string, rep summary.Report) error {
+	raw, err := json.MarshalIndent(rep, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode summary: %w", err)
+	}
+	raw = append(raw, '\n')
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		return fmt.Errorf("write summary %s: %w", path, err)
+	}
+	return nil
+}
+
+func printSummary(w io.Writer, rep summary.Report) error {
+	if _, err := fmt.Fprintln(w, "---"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "passRate: %g (%d/%d)\n", rep.PassRate, rep.Passed, rep.Attempts); err != nil {
+		return err
+	}
+	if rep.AvgTurns != nil {
+		if _, err := fmt.Fprintf(w, "avgTurns: %g\n", *rep.AvgTurns); err != nil {
+			return err
+		}
+	}
+	if rep.AvgCostUSD != nil {
+		if _, err := fmt.Fprintf(w, "avgCostUSD: %g\n", *rep.AvgCostUSD); err != nil {
+			return err
+		}
+	}
+	if rep.AvgDurationMs != nil {
+		if _, err := fmt.Fprintf(w, "avgDurationMs: %g\n", *rep.AvgDurationMs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// printVerdict prints PASS/FAIL (and failure lines) without affecting exit status.
+func printVerdict(w io.Writer, v checker.Verdict) error {
 	if v.Passed {
 		_, err := fmt.Fprintln(w, "PASS")
 		return err
@@ -123,7 +232,18 @@ func reportVerdict(w io.Writer, v checker.Verdict) error {
 			return err
 		}
 	}
-	return fmt.Errorf("check failed")
+	return nil
+}
+
+// reportVerdict prints PASS/FAIL and returns an error when the check failed.
+func reportVerdict(w io.Writer, v checker.Verdict) error {
+	if err := printVerdict(w, v); err != nil {
+		return err
+	}
+	if !v.Passed {
+		return fmt.Errorf("check failed")
+	}
+	return nil
 }
 
 // splitFlagsAndPositionals allows flags before or after the eval path.

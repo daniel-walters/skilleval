@@ -22,9 +22,18 @@ type Eval struct {
 	Prompt        string `yaml:"prompt"`
 	// Skill is a filesystem path to a skill directory containing SKILL.md
 	// (relative to the eval YAML, or absolute).
-	Skill   string  `yaml:"skill"`
-	Input   string  `yaml:"input,omitempty"`
-	Expects Expects `yaml:"expects,omitempty"`
+	Skill string `yaml:"skill"`
+	Input string `yaml:"input,omitempty"`
+	// Attempts is how many times to run this eval (default 1 when omitted or <= 0).
+	Attempts int `yaml:"attempts,omitempty"`
+	// PassRate optionally gates a multi-attempt batch on aggregate pass rate.
+	PassRate *PassRateExpect `yaml:"passRate,omitempty"`
+	Expects  Expects         `yaml:"expects,omitempty"`
+}
+
+// PassRateExpect is a batch-level minimum pass rate across attempts.
+type PassRateExpect struct {
+	Min *float64 `yaml:"min,omitempty"`
 }
 
 // Expects are deterministic predicates over a Result (and workspace files).
@@ -116,6 +125,18 @@ func validate(e *Eval, path string) error {
 	}
 	if strings.TrimSpace(e.Skill) == "" {
 		return fmt.Errorf("eval: %s: skill is required", path)
+	}
+	if e.Attempts <= 0 {
+		e.Attempts = 1
+	}
+	if e.PassRate != nil {
+		if e.PassRate.Min == nil {
+			return fmt.Errorf("eval: %s: passRate.min is required when passRate is set", path)
+		}
+		min := *e.PassRate.Min
+		if min < 0 || min > 1 {
+			return fmt.Errorf("eval: %s: passRate.min must be between 0 and 1 (got %g)", path, min)
+		}
 	}
 
 	skillPath := ResolvePath(path, e.Skill)
