@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/daniel-walters/skilleval/checker"
+	"github.com/daniel-walters/skilleval/summary"
 )
 
 func TestSplitFlagsAndPositionals(t *testing.T) {
@@ -80,4 +81,43 @@ func TestReportVerdict(t *testing.T) {
 			t.Fatalf("output = %q, want %q", got, want)
 		}
 	})
+}
+
+func TestAttemptOutPath(t *testing.T) {
+	if got := attemptOutPath("/tmp/result.json", 1, 1); got != "/tmp/result.json" {
+		t.Fatalf("single = %q", got)
+	}
+	if got := attemptOutPath("/tmp/result.json", 2, 5); got != "/tmp/result-2.json" {
+		t.Fatalf("multi = %q", got)
+	}
+	if got := attemptOutPath("/tmp/out", 3, 3); got != "/tmp/out-3" {
+		t.Fatalf("no ext = %q", got)
+	}
+}
+
+func TestSummaryOutPath(t *testing.T) {
+	if got := summaryOutPath("/tmp/result.json"); got != "/tmp/result-summary.json" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestPrintSummary(t *testing.T) {
+	turns := 12.5
+	cost := 0.4
+	var buf bytes.Buffer
+	err := printSummary(&buf, summary.Report{
+		Attempts:   4,
+		Passed:     3,
+		PassRate:   0.75,
+		AvgTurns:   &turns,
+		AvgCostUSD: &cost,
+	})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	got := buf.String()
+	want := "---\npassRate: 0.75 (3/4)\navgTurns: 12.5\navgCostUSD: 0.4\n"
+	if got != want {
+		t.Fatalf("output = %q, want %q", got, want)
+	}
 }
