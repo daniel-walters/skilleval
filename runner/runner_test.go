@@ -5,18 +5,36 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/daniel-walters/skilleval/eval"
 	"github.com/daniel-walters/skilleval/result"
 	"github.com/daniel-walters/skilleval/runner"
+	"github.com/daniel-walters/skilleval/skill"
 )
 
 type fakeAgent struct {
-	obs     runner.AgentObservables
-	err     error
-	mutate  func(workspace string) error
-	lastReq runner.AgentRequest
+	obs      runner.AgentObservables
+	err      error
+	mutate   func(workspace string) error
+	lastReq  runner.AgentRequest
+	runnerID string
+}
+
+func (f *fakeAgent) RunnerID() string {
+	if f.runnerID != "" {
+		return f.runnerID
+	}
+	return "cursor"
+}
+
+func (f *fakeAgent) PrepareWorkspace(workspace string, sk *skill.Skill) error {
+	return runner.PlaceSkillUnder(workspace, []string{".cursor", "skills"}, sk)
+}
+
+func (f *fakeAgent) IgnoreOutcomePath(rel string) bool {
+	return rel == ".cursor" || strings.HasPrefix(rel, ".cursor/")
 }
 
 func (f *fakeAgent) Run(ctx context.Context, req runner.AgentRequest) (runner.AgentObservables, error) {
@@ -226,6 +244,39 @@ func TestRunErrorStatus(t *testing.T) {
 	defer func() { _ = os.RemoveAll(workspace) }()
 	if r.Status != result.StatusError || r.Error == nil || *r.Error != "boom" {
 		t.Fatalf("status/error = %s %v", r.Status, r.Error)
+	}
+}
+
+func TestRunUsesAgentCostUSD(t *testing.T) {
+	dir := t.TempDir()
+	setupEval(t, dir)
+	cost := 0.042
+	agent := &fakeAgent{
+		obs: runner.AgentObservables{
+			ID:     "run_agent_cost",
+			Status: result.StatusFinished,
+			Usage: result.Usage{
+				InputTokens:  10,
+				OutputTokens: 5,
+				TotalTokens:  15,
+			},
+			CostUSD: &cost,
+		},
+	}
+	ev, err := eval.Load(filepath.Join(dir, "eval.yaml"))
+	if err != nil {
+		t.Fatalf("eval.Load: %v", err)
+	}
+	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+		Model: "composer-2.5",
+		Agent: agent,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(workspace) }()
+	if r.Metrics.CostUSD == nil || *r.Metrics.CostUSD != cost {
+		t.Fatalf("costUSD = %v, want %v", r.Metrics.CostUSD, cost)
 	}
 }
 
