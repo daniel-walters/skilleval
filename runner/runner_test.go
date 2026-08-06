@@ -2,6 +2,7 @@ package runner_test
 
 import (
 	"context"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -104,8 +105,12 @@ func TestRunSeedsInputPlacesSkillAndDiffs(t *testing.T) {
 	if r.Metrics.Usage.TotalTokens != 15 {
 		t.Fatalf("usage = %+v", r.Metrics.Usage)
 	}
-	if r.Metrics.CostUSD != nil {
-		t.Fatalf("costUSD = %v, want nil", r.Metrics.CostUSD)
+	// composer-2.5: (10*0.5 + 5*2.5) / 1e6 = 0.0000175
+	if r.Metrics.CostUSD == nil {
+		t.Fatal("costUSD = nil, want estimate")
+	}
+	if want := 0.0000175; math.Abs(*r.Metrics.CostUSD-want) > 1e-12 {
+		t.Fatalf("costUSD = %g, want %g", *r.Metrics.CostUSD, want)
 	}
 	if len(r.Metrics.ToolsUsed) != 2 || r.Metrics.ToolsUsed[0] != "read" {
 		t.Fatalf("toolsUsed = %#v", r.Metrics.ToolsUsed)
@@ -159,6 +164,40 @@ func TestRunFileCreatedAndDeleted(t *testing.T) {
 	}
 	if r.Outcomes.Files["src/foo.go"].Status != result.FileDeleted {
 		t.Fatalf("foo = %#v", r.Outcomes.Files["src/foo.go"])
+	}
+}
+
+func TestRunUnknownModelCostNil(t *testing.T) {
+	dir := t.TempDir()
+	setupEval(t, dir)
+
+	agent := &fakeAgent{
+		obs: runner.AgentObservables{
+			ID:     "run_unknown_model",
+			Status: result.StatusFinished,
+			Usage: result.Usage{
+				InputTokens:  1000,
+				OutputTokens: 100,
+				TotalTokens:  1100,
+			},
+		},
+	}
+
+	ev, err := eval.Load(filepath.Join(dir, "eval.yaml"))
+	if err != nil {
+		t.Fatalf("eval.Load: %v", err)
+	}
+	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+		Model: "not-a-real-model",
+		Agent: agent,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(workspace) }()
+
+	if r.Metrics.CostUSD != nil {
+		t.Fatalf("costUSD = %v, want nil for unknown model", *r.Metrics.CostUSD)
 	}
 }
 
