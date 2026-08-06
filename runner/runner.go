@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/daniel-walters/skilleval/cost"
 	"github.com/daniel-walters/skilleval/eval"
 	"github.com/daniel-walters/skilleval/result"
 	"github.com/daniel-walters/skilleval/skill"
@@ -178,7 +179,7 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 			ToolsUsed:  toolsUsed,
 			ToolCalls:  toolCalls,
 			Usage:      obs.Usage,
-			CostUSD:    nil,
+			CostUSD:    cost.USD(opts.Model, obs.Usage),
 		},
 		Skills: result.Skills{
 			Activated: activated,
