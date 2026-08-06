@@ -1,6 +1,7 @@
 package history_test
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -63,5 +64,29 @@ func TestRetainRejectsEmpty(t *testing.T) {
 	}
 	if _, err := history.Retain(t.TempDir(), "", summary.Report{}); err == nil {
 		t.Fatal("expected error for empty eval name")
+	}
+}
+
+func TestRetainRejectsEscapingEvalName(t *testing.T) {
+	dir := t.TempDir()
+	cases := []string{
+		"..",
+		"../outside",
+		"foo/bar",
+		"foo/../bar",
+		"/tmp/abs",
+	}
+	for _, name := range cases {
+		if _, err := history.Retain(dir, name, summary.Report{PassRate: 1}); err == nil {
+			t.Fatalf("expected error for eval name %q", name)
+		}
+	}
+	// Nothing should have been created under dir for rejected names.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("history dir should stay empty, got %v", entries)
 	}
 }
