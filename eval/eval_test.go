@@ -214,6 +214,49 @@ passRate:
 	})
 }
 
+func TestLoadNumericBounds(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  turns:
+    min: 1
+    max: 15
+    gt: 0
+    lt: 20
+    eq: 3
+  costUSD:
+    min: 0
+    max: 1.0
+    gt: 0
+    lt: 2
+    eq: 0.25
+`)
+	e, err := eval.Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	tr := e.Expects.Turns
+	if tr == nil ||
+		tr.Min == nil || *tr.Min != 1 ||
+		tr.Max == nil || *tr.Max != 15 ||
+		tr.Gt == nil || *tr.Gt != 0 ||
+		tr.Lt == nil || *tr.Lt != 20 ||
+		tr.Eq == nil || *tr.Eq != 3 {
+		t.Fatalf("Turns = %#v", tr)
+	}
+	c := e.Expects.CostUSD
+	if c == nil ||
+		c.Min == nil || *c.Min != 0 ||
+		c.Max == nil || *c.Max != 1.0 ||
+		c.Gt == nil || *c.Gt != 0 ||
+		c.Lt == nil || *c.Lt != 2 ||
+		c.Eq == nil || *c.Eq != 0.25 {
+		t.Fatalf("CostUSD = %#v", c)
+	}
+}
+
 func TestLoadRejectsInvalidPassRate(t *testing.T) {
 	t.Run("missing min", func(t *testing.T) {
 		path := writeTempEvalWithSkill(t, `schemaVersion: 1

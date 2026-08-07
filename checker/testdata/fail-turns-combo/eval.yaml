@@ -1,0 +1,8 @@
+schemaVersion: 1
+name: fail-turns-combo
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  turns:
+    min: 5
+    max: 3

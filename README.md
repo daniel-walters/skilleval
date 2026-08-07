@@ -61,6 +61,18 @@ String matches (`contains` / `equals`) are either a literal or a slash-delimited
 
 File expects use workspace-relative paths. Optional `status` is one of `created`, `modified`, or `deleted`; you can also assert content with `contains` / `equals`.
 
+`turns` and `costUSD` accept optional numeric bounds (all independently checked when set):
+
+| Field | Meaning |
+| --- | --- |
+| `min` | actual ≥ bound |
+| `max` | actual ≤ bound |
+| `gt` | actual > bound |
+| `lt` | actual < bound |
+| `eq` | actual == bound |
+
+Nil `costUSD` on the Result fails any set cost bound. Existing max-only evals keep working.
+
 See [`examples/refactor-helper/eval.yaml`](examples/refactor-helper/eval.yaml) for a complete document, or [`examples/mcp-ping/eval.yaml`](examples/mcp-ping/eval.yaml) for an MCP-dependent skill.
 
 ### MCP

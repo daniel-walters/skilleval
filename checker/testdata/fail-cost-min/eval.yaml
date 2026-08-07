@@ -1,0 +1,7 @@
+schemaVersion: 1
+name: fail-cost-min
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  costUSD:
+    min: 0.5

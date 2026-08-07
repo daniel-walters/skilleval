@@ -1,0 +1,7 @@
+schemaVersion: 1
+name: fail-turns-min
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  turns:
+    min: 5

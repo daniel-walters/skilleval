@@ -1,0 +1,17 @@
+schemaVersion: 1
+name: pass-numeric-bounds
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  turns:
+    min: 4
+    max: 4
+    gt: 3
+    lt: 5
+    eq: 4
+  costUSD:
+    min: 0.25
+    max: 0.25
+    gt: 0
+    lt: 1
+    eq: 0.25

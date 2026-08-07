@@ -1,0 +1,7 @@
+schemaVersion: 1
+name: fail-turns-gt
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  turns:
+    gt: 4
