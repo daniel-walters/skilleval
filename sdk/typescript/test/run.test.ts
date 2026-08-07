@@ -1,11 +1,42 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { parseWroteLines, summaryOutPath } from "../src/run.js";
+import type { EvalDocument, RunOptions } from "../src/eval.js";
+import { parseWroteLines, shouldWriteTempEval, summaryOutPath } from "../src/run.js";
 import {
   matchContains,
   matchEquals,
 } from "../src/stringMatch.js";
+
+describe("shouldWriteTempEval", () => {
+  const programmatic: RunOptions = {
+    name: "n",
+    prompt: "p",
+    skill: "./skill",
+    model: "composer-2",
+  };
+
+  const loaded: EvalDocument = {
+    schemaVersion: 1,
+    name: "n",
+    prompt: "p",
+    skill: "./skill",
+    sourcePath: "/abs/eval.yaml",
+  };
+
+  it("writes temp YAML for programmatic RunOptions", () => {
+    assert.equal(shouldWriteTempEval(programmatic), true);
+  });
+
+  it("uses on-disk file when sourcePath is set", () => {
+    assert.equal(shouldWriteTempEval(loaded, { model: "composer-2" }), false);
+  });
+
+  it("does not rewrite when sourcePath is present even with a model field", () => {
+    const merged = { ...loaded, model: "composer-2" };
+    assert.equal(shouldWriteTempEval(merged), false);
+  });
+});
 
 describe("parseWroteLines", () => {
   it("parses a single-attempt wrote line", () => {

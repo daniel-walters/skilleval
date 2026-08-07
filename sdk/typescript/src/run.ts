@@ -12,6 +12,12 @@ export interface RunResult {
   result: Result;
   workspace: string;
   summary?: Summary;
+  /**
+   * Exit code from the skilleval process. Non-zero when the CLI failed YAML
+   * expects or a pass-rate gate after writing Result; Result is still returned
+   * so `expect()` can assert (e.g. `run.status` on non-finished attempts).
+   */
+  exitCode: number;
 }
 
 type CliFlags = {
@@ -27,6 +33,7 @@ type CliFlags = {
  *
  * - `run({ name, prompt, skill, model, ... })` writes a temp eval YAML (no expects).
  * - `run(await loadEval(path), { model })` uses the loaded YAML file as-is.
+ * - Objects with `sourcePath` (from `loadEval`) always use that file — never a temp rewrite.
  */
 export async function run(opts: RunOptions): Promise<RunResult>;
 export async function run(ev: EvalDocument, opts: RunOverrides): Promise<RunResult>;
@@ -48,8 +55,8 @@ async function resolveEvalAndFlags(
   evalOrOpts: RunOptions | EvalDocument,
   overrides?: RunOverrides,
 ): Promise<{ evalPath: string; flags: CliFlags; cleanup?: string }> {
-  if (isRunOptions(evalOrOpts, overrides)) {
-    const opts = evalOrOpts;
+  if (shouldWriteTempEval(evalOrOpts, overrides)) {
+    const opts = evalOrOpts as RunOptions;
     if (!opts.model) {
       throw new Error("run: model is required");
     }
@@ -80,46 +87,69 @@ async function resolveEvalAndFlags(
         history: opts.history,
         baseline: opts.baseline,
       },
-      // Keep temp dir until after CLI runs (eval path must exist during spawn).
-      // invokeCli reads results into memory; then we delete.
       cleanup: tmpDir,
     };
   }
 
-  const ev = evalOrOpts;
-  if (!overrides?.model) {
-    throw new Error("run: model is required");
-  }
+  const ev = evalOrOpts as EvalDocument;
   if (!ev.sourcePath) {
     throw new Error("run: loaded eval is missing sourcePath; use loadEval(path)");
+  }
+  const model = overrides?.model ?? readStringField(evalOrOpts, "model");
+  if (!model) {
+    throw new Error("run: model is required");
   }
   return {
     evalPath: ev.sourcePath,
     flags: {
-      model: overrides.model,
-      runner: overrides.runner,
-      out: overrides.out,
-      history: overrides.history,
-      baseline: overrides.baseline,
+      model,
+      runner: overrides?.runner ?? readStringField(evalOrOpts, "runner"),
+      out: overrides?.out ?? readStringField(evalOrOpts, "out"),
+      history: overrides?.history ?? readStringField(evalOrOpts, "history"),
+      baseline: overrides?.baseline ?? readStringField(evalOrOpts, "baseline"),
     },
   };
 }
 
-function isRunOptions(
+/**
+ * True when run should materialize a temp eval YAML.
+ * Loaded evals (`sourcePath` set) always use the on-disk file, even if a
+ * `model` field is present on the same object (e.g. `{ ...ev, model }`).
+ */
+export function shouldWriteTempEval(
   evalOrOpts: RunOptions | EvalDocument,
   overrides?: RunOverrides,
-): evalOrOpts is RunOptions {
+): boolean {
+  if (hasSourcePath(evalOrOpts)) {
+    return false;
+  }
   return overrides === undefined && "model" in evalOrOpts && typeof evalOrOpts.model === "string";
+}
+
+function hasSourcePath(evalOrOpts: RunOptions | EvalDocument): boolean {
+  return (
+    typeof (evalOrOpts as EvalDocument).sourcePath === "string" &&
+    !!(evalOrOpts as EvalDocument).sourcePath
+  );
+}
+
+function readStringField(obj: object, key: string): string | undefined {
+  if (!(key in obj)) {
+    return undefined;
+  }
+  const v = (obj as Record<string, unknown>)[key];
+  return typeof v === "string" && v ? v : undefined;
 }
 
 async function invokeCli(evalPath: string, flags: CliFlags): Promise<RunResult> {
   const bin = resolveBinary();
   let outPath: string;
+  let outCleanup: string | undefined;
   if (flags.out) {
     outPath = path.resolve(flags.out);
   } else {
-    const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "skilleval-out-"));
-    outPath = path.join(outDir, "result.json");
+    outCleanup = await fs.mkdtemp(path.join(os.tmpdir(), "skilleval-out-"));
+    outPath = path.join(outCleanup, "result.json");
   }
 
   const args = ["run", evalPath, "--model", flags.model, "--out", outPath];
@@ -133,25 +163,33 @@ async function invokeCli(evalPath: string, flags: CliFlags): Promise<RunResult> 
     args.push("--baseline", path.resolve(flags.baseline));
   }
 
-  const { stdout, stderr, code } = await spawnCapture(bin, args);
-
-  const writes = parseWroteLines(stdout);
-  if (writes.length === 0) {
-    const detail = stderr.trim() || stdout.trim() || `exit ${code}`;
-    throw new Error(`run: skilleval produced no Result (${detail})`);
-  }
-
-  const last = writes[writes.length - 1]!;
-  const result = await readJson<Result>(last.outPath);
-  // Summary is written beside --out as <stem>-summary<ext>.
-  let summary: Summary | undefined;
   try {
-    summary = await readJson<Summary>(summaryOutPath(outPath));
-  } catch {
-    // optional
-  }
+    const { stdout, stderr, code } = await spawnCapture(bin, args);
+    const exitCode = code ?? 1;
 
-  return { result, workspace: last.workspace, summary };
+    const writes = parseWroteLines(stdout);
+    if (writes.length === 0) {
+      const detail = stderr.trim() || stdout.trim() || `exit ${exitCode}`;
+      throw new Error(`run: skilleval produced no Result (${detail})`);
+    }
+
+    const last = writes[writes.length - 1]!;
+    const result = await readJson<Result>(last.outPath);
+    let summary: Summary | undefined;
+    try {
+      summary = await readJson<Summary>(summaryOutPath(outPath));
+    } catch {
+      // optional
+    }
+
+    // Non-zero exit is expected when YAML expects / pass-rate fail after a
+    // Result was written; still return so TS expect() can assert.
+    return { result, workspace: last.workspace, summary, exitCode };
+  } finally {
+    if (outCleanup) {
+      await fs.rm(outCleanup, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
 }
 
 function resolveBinary(): string {

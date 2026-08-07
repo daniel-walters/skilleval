@@ -39,6 +39,7 @@ expect(result, workspace).turns.toBeLessThanOrEqual(15);
 expect(result, workspace).file("src/foo.go").toHaveBeenModified().toContain(/func Foo/);
 ```
 
+`run` returns `{ result, workspace, summary?, exitCode }`. A non-zero `exitCode` means the Go CLI failed YAML expects or a pass-rate gate after writing Result; Result is still returned so `expect()` can assert.
 Or load an existing eval YAML:
 
 ```ts
