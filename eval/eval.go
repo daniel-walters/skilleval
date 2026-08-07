@@ -24,6 +24,10 @@ type Eval struct {
 	// (relative to the eval YAML, or absolute).
 	Skill string `yaml:"skill"`
 	Input string `yaml:"input,omitempty"`
+	// MCP is an optional filesystem path to a native MCP JSON config file
+	// (relative to the eval YAML, or absolute). The runner seeds it into the
+	// attempt workspace as Cursor .cursor/mcp.json or Claude .mcp.json.
+	MCP string `yaml:"mcp,omitempty"`
 	// Attempts is how many times to run this eval (default 1 when omitted or <= 0).
 	Attempts int `yaml:"attempts,omitempty"`
 	// PassRate optionally gates a multi-attempt batch on aggregate pass rate.
@@ -86,9 +90,10 @@ type TextExpect struct {
 }
 
 // Load reads path as an eval YAML document, validates it, and returns the Eval.
-// Skill and optional Input are interpreted relative to the YAML file's directory.
+// Skill, optional Input, and optional MCP are interpreted relative to the YAML file's directory.
 // Skill must name an existing directory that contains SKILL.md.
 // Input, when set, must name an existing directory.
+// MCP, when set, must name an existing file (native MCP JSON).
 func Load(path string) (*Eval, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -171,16 +176,26 @@ func validate(e *Eval, path string) error {
 		}
 	}
 
-	if e.Input == "" {
-		return nil
+	if e.Input != "" {
+		inputPath := ResolvePath(path, e.Input)
+		info, err = os.Stat(inputPath)
+		if err != nil {
+			return fmt.Errorf("eval: %s: input %q: %w", path, e.Input, err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("eval: %s: input %q is not a directory", path, e.Input)
+		}
 	}
-	inputPath := ResolvePath(path, e.Input)
-	info, err = os.Stat(inputPath)
-	if err != nil {
-		return fmt.Errorf("eval: %s: input %q: %w", path, e.Input, err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("eval: %s: input %q is not a directory", path, e.Input)
+
+	if e.MCP != "" {
+		mcpPath := ResolvePath(path, e.MCP)
+		info, err = os.Stat(mcpPath)
+		if err != nil {
+			return fmt.Errorf("eval: %s: mcp %q: %w", path, e.MCP, err)
+		}
+		if info.IsDir() {
+			return fmt.Errorf("eval: %s: mcp %q is a directory (want a JSON file)", path, e.MCP)
+		}
 	}
 	return nil
 }

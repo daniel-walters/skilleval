@@ -1,0 +1,25 @@
+schemaVersion: 1
+name: mcp-ping
+prompt: |
+  Use the mcp-ping skill.
+
+  Call the echo-mcp ping tool, then write the result to ping-result.json
+  at the workspace root (JSON object with a "result" field).
+skill: skills/mcp-ping
+input: fixtures/mcp-ping
+mcp: mcp.json
+expects:
+  turns:
+    max: 20
+  costUSD:
+    max: 1.0
+  toolsUsed:
+    # Cursor records MCP as "mcp". For --runner claude use e.g. mcp__echo-mcp__ping.
+    includes: [mcp]
+  skills:
+    activated:
+      includes: [mcp-ping]
+  files:
+    ping-result.json:
+      status: created
+      contains: /pong/

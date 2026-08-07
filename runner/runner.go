@@ -58,12 +58,15 @@ type AgentObservables struct {
 }
 
 // Agent executes a prompt against a workspace and returns observables.
-// Each implementation owns skill placement, runner identity, and outcome path skips.
+// Each implementation owns skill placement, MCP seeding, runner identity, and outcome path skips.
 type Agent interface {
 	// RunnerID is recorded on Result.eval.runner (e.g. "cursor", "claude").
 	RunnerID() string
 	// PrepareWorkspace places the loaded skill for this backend.
 	PrepareWorkspace(workspace string, sk *skill.Skill) error
+	// SeedMCP writes native project MCP config from srcJSON into the workspace
+	// (Cursor: .cursor/mcp.json; Claude: .mcp.json).
+	SeedMCP(workspace, srcJSON string) error
 	// IgnoreOutcomePath excludes agent-private trees from file outcomes.
 	IgnoreOutcomePath(rel string) bool
 	Run(ctx context.Context, req AgentRequest) (AgentObservables, error)
@@ -112,6 +115,13 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 
 	if err := agent.PrepareWorkspace(workspace, sk); err != nil {
 		return nil, workspace, fmt.Errorf("runner: place skill: %w", err)
+	}
+
+	if ev.MCP != "" {
+		mcpPath := eval.ResolvePath(evalPath, ev.MCP)
+		if err := agent.SeedMCP(workspace, mcpPath); err != nil {
+			return nil, workspace, fmt.Errorf("runner: seed mcp: %w", err)
+		}
 	}
 
 	before, err := snapshot(workspace, agent.IgnoreOutcomePath)

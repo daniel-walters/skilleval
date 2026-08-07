@@ -27,7 +27,7 @@ go build -o skilleval ./cmd/skilleval
 
 ## Authoring an eval
 
-An eval is a YAML file plus a skill directory (and optional input fixtures). Paths in the YAML are relative to the YAML file.
+An eval is a YAML file plus a skill directory (and optional input fixtures / MCP config). Paths in the YAML are relative to the YAML file.
 
 Typical layout:
 
@@ -36,6 +36,7 @@ my-eval/
   eval.yaml
   skills/my-skill/SKILL.md
   fixtures/my-skill/   # optional; copied into the attempt workspace
+  mcp.json             # optional; native MCP config (see MCP below)
 ```
 
 ### Skill
@@ -53,20 +54,72 @@ Minimum fields:
 | `prompt` | What the agent should do |
 | `skill` | Directory containing `SKILL.md` |
 | `input` | Optional fixture directory copied into the workspace |
+| `mcp` | Optional path to a native MCP JSON file seeded into the workspace |
 | `expects` | Deterministic checks on the Result / workspace |
 
 String matches (`contains` / `equals`) are either a literal or a slash-delimited regex (`/pattern/`).
 
 File expects use workspace-relative paths. Optional `status` is one of `created`, `modified`, or `deleted`; you can also assert content with `contains` / `equals`.
 
-See [`examples/refactor-helper/eval.yaml`](examples/refactor-helper/eval.yaml) for a complete document.
+See [`examples/refactor-helper/eval.yaml`](examples/refactor-helper/eval.yaml) for a complete document, or [`examples/mcp-ping/eval.yaml`](examples/mcp-ping/eval.yaml) for an MCP-dependent skill.
+
+### MCP
+
+Skills that need MCP tools can supply a **native** MCP JSON file via `mcp`. The harness copies it into each attempt workspace at the runner’s project path (no parallel skilleval schema):
+
+| Runner | Seeded path |
+| --- | --- |
+| Cursor (`--runner cursor`) | `.cursor/mcp.json` |
+| Claude (`--runner claude`) | `.mcp.json` (workspace root) |
+
+Both runners load project MCP only (`settingSources: ["project"]`), so host/global MCP does not leak into the attempt.
+
+Put stdio server scripts (and other files the MCP command needs) under `input` so paths in `mcp.json` resolve inside the seeded workspace. Example: [`examples/mcp-ping/`](examples/mcp-ping/).
+
+**Auth matrix**
+
+| Bucket | Mechanism | Local | CI |
+| --- | --- | --- | --- |
+| No auth | stdio/HTTP MCP with no secrets | Supported | Supported |
+| Env / token | `env` / `headers` with interpolation | Supported if env set | Supported via CI secrets |
+| Interactive OAuth | Browser / app login only | Not automatable in the SDK | Not supported |
+
+Do not commit secrets in fixtures. Use runner interpolation instead:
+
+- **Cursor:** `${env:NAME}` in `env` / `headers`
+- **Claude:** `${VAR}` in `env` / `headers`
+
+Example snippet (token never stored in the file):
+
+```json
+{
+  "mcpServers": {
+    "my-api": {
+      "command": "npx",
+      "args": ["-y", "my-mcp-server"],
+      "env": {
+        "API_TOKEN": "${env:API_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+For Claude, prefer `"API_TOKEN": "${API_TOKEN}"` (Claude’s `${VAR}` form).
+
+**`toolsUsed` naming** differs by runner when asserting MCP calls:
+
+- Cursor: generic tool name `mcp`
+- Claude: server-qualified `mcp__<server>__<tool>` (e.g. `mcp__echo-mcp__ping`)
+
+The same eval YAML cannot share a single `toolsUsed.includes` entry across both runners for MCP; write runner-specific expects or run Cursor and Claude as separate evals.
 
 ### Credentials
 
 Live runs need credentials in the environment (or a `.env` in the current working directory):
 
 - **Cursor** (`--runner cursor`, default): `CURSOR_API_KEY`
-- **Claude** (`--runner claude`): `ANTHROPIC_API_KEY`, or an existing `claude auth login` session
+- **Claude** (`--runner claude`): `ANTHROPIC_API_KEY` for CI / headless runs, or an existing `claude login` / Max subscription session locally (`claude auth login`)
 
 ```bash
 echo 'CURSOR_API_KEY=...' > .env
@@ -74,15 +127,16 @@ echo 'CURSOR_API_KEY=...' > .env
 echo 'ANTHROPIC_API_KEY=...' > .env
 ```
 
-Already-set process environment variables win over `.env` (use that in CI). `.env` is gitignored.
+Already-set process environment variables win over `.env` (use that in CI). `.env` is gitignored. Local Claude subscription auth does not replace `ANTHROPIC_API_KEY` in CI.
 
 ### Run to a Verdict
 
 ```bash
 skilleval run examples/refactor-helper/eval.yaml --model <ID>
+skilleval run examples/mcp-ping/eval.yaml --model <ID>
 ```
 
-Use `--runner claude` for the Claude agent. The eval YAML stays runner-agnostic; the Result records which runner produced the attempt.
+Use `--runner claude` for the Claude agent. The eval YAML stays runner-agnostic for skill/input/mcp seeding; MCP `toolsUsed` expects may still need runner-specific names (see above). The Result records which runner produced the attempt.
 
 After the run, expects are checked against the Result (and attempt workspace when needed). The CLI prints `PASS` or `FAIL` and exits non-zero when the check fails.
 

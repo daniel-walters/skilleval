@@ -45,6 +45,11 @@ func (a *CursorAgent) PrepareWorkspace(workspace string, sk *skill.Skill) error 
 	return PlaceSkillUnder(workspace, []string{".cursor", "skills"}, sk)
 }
 
+// SeedMCP writes srcJSON to workspace/.cursor/mcp.json.
+func (a *CursorAgent) SeedMCP(workspace, srcJSON string) error {
+	return copyFile(srcJSON, filepath.Join(workspace, ".cursor", "mcp.json"))
+}
+
 // IgnoreOutcomePath skips Cursor's private skill tree from file outcomes.
 func (a *CursorAgent) IgnoreOutcomePath(rel string) bool {
 	return rel == ".cursor" || strings.HasPrefix(rel, ".cursor/")
