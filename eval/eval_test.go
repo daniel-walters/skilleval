@@ -83,6 +83,69 @@ func TestLoadRejectsMissingInputDir(t *testing.T) {
 	}
 }
 
+func TestLoadAcceptsMCPFile(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "skill-dir")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatalf("mkdir skill: %v", err)
+	}
+	skillMD := "---\nname: helper\ndescription: test\n---\n\n# Helper\n"
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillMD), 0o644); err != nil {
+		t.Fatalf("write SKILL.md: %v", err)
+	}
+	mcpPath := filepath.Join(dir, "mcp.json")
+	if err := os.WriteFile(mcpPath, []byte(`{"mcpServers":{}}`), 0o644); err != nil {
+		t.Fatalf("write mcp.json: %v", err)
+	}
+	path := filepath.Join(dir, "eval.yaml")
+	body := "schemaVersion: 1\nname: x\nprompt: p\nskill: skill-dir\nmcp: mcp.json\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("write eval: %v", err)
+	}
+	e, err := eval.Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if e.MCP != "mcp.json" {
+		t.Fatalf("MCP = %q, want mcp.json", e.MCP)
+	}
+}
+
+func TestLoadRejectsMissingMCPFile(t *testing.T) {
+	path := writeTempEvalWithSkill(t, "schemaVersion: 1\nname: x\nprompt: p\nskill: skill-dir\nmcp: missing-mcp.json\n")
+	if _, err := eval.Load(path); err == nil {
+		t.Fatal("expected error for missing mcp file")
+	}
+}
+
+func TestLoadRejectsMCPDirectory(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "skill-dir")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatalf("mkdir skill: %v", err)
+	}
+	skillMD := "---\nname: helper\ndescription: test\n---\n\n# Helper\n"
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillMD), 0o644); err != nil {
+		t.Fatalf("write SKILL.md: %v", err)
+	}
+	mcpDir := filepath.Join(dir, "mcp-dir")
+	if err := os.MkdirAll(mcpDir, 0o755); err != nil {
+		t.Fatalf("mkdir mcp: %v", err)
+	}
+	path := filepath.Join(dir, "eval.yaml")
+	body := "schemaVersion: 1\nname: x\nprompt: p\nskill: skill-dir\nmcp: mcp-dir\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("write eval: %v", err)
+	}
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for mcp directory")
+	}
+	if !strings.Contains(err.Error(), "directory") {
+		t.Fatalf("error = %v, want mention of directory", err)
+	}
+}
+
 func TestLoadRejectsMissingSkillDir(t *testing.T) {
 	path := writeTempEval(t, "schemaVersion: 1\nname: x\nprompt: p\nskill: missing-skill\n")
 	if _, err := eval.Load(path); err == nil {
