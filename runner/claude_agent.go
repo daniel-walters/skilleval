@@ -39,9 +39,15 @@ func (a *ClaudeAgent) PrepareWorkspace(workspace string, sk *skill.Skill) error 
 	return PlaceSkillUnder(workspace, []string{".claude", "skills"}, sk)
 }
 
-// IgnoreOutcomePath skips Claude's private skill tree from file outcomes.
+// SeedMCP writes srcJSON to workspace/.mcp.json.
+func (a *ClaudeAgent) SeedMCP(workspace, srcJSON string) error {
+	return copyFile(srcJSON, filepath.Join(workspace, ".mcp.json"))
+}
+
+// IgnoreOutcomePath skips Claude's private skill tree and seeded MCP config
+// from file outcomes.
 func (a *ClaudeAgent) IgnoreOutcomePath(rel string) bool {
-	return rel == ".claude" || strings.HasPrefix(rel, ".claude/")
+	return rel == ".claude" || strings.HasPrefix(rel, ".claude/") || rel == ".mcp.json"
 }
 
 // Run executes one Claude agent attempt and returns normalized observables.

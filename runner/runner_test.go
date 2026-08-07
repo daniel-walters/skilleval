@@ -33,6 +33,10 @@ func (f *fakeAgent) PrepareWorkspace(workspace string, sk *skill.Skill) error {
 	return runner.PlaceSkillUnder(workspace, []string{".cursor", "skills"}, sk)
 }
 
+func (f *fakeAgent) SeedMCP(workspace, srcJSON string) error {
+	return (&runner.CursorAgent{}).SeedMCP(workspace, srcJSON)
+}
+
 func (f *fakeAgent) IgnoreOutcomePath(rel string) bool {
 	return rel == ".cursor" || strings.HasPrefix(rel, ".cursor/")
 }
