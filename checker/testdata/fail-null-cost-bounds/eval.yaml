@@ -1,0 +1,8 @@
+schemaVersion: 1
+name: fail-null-cost-bounds
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  costUSD:
+    min: 0
+    eq: 0.25

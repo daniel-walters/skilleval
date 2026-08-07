@@ -1,0 +1,7 @@
+schemaVersion: 1
+name: fail-cost-eq
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  costUSD:
+    eq: 0.5

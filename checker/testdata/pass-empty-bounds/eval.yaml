@@ -1,0 +1,7 @@
+schemaVersion: 1
+name: pass-empty-bounds
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  turns: {}
+  costUSD: {}
