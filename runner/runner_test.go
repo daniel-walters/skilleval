@@ -151,6 +151,81 @@ func TestRunSeedsInputPlacesSkillAndDiffs(t *testing.T) {
 	}
 }
 
+func TestRunSeedsMCP(t *testing.T) {
+	dir := t.TempDir()
+	setupEval(t, dir)
+	mcpBody := []byte(`{"mcpServers":{"echo-mcp":{"command":"node","args":["servers/echo-mcp.mjs"]}}}`)
+	if err := os.WriteFile(filepath.Join(dir, "mcp.json"), mcpBody, 0o644); err != nil {
+		t.Fatalf("write mcp.json: %v", err)
+	}
+	evalPath := filepath.Join(dir, "eval.yaml")
+	body := `schemaVersion: 1
+name: demo-eval
+prompt: Refactor src/foo.go
+skill: skills/demo
+input: fixtures/in
+mcp: mcp.json
+`
+	if err := os.WriteFile(evalPath, []byte(body), 0o644); err != nil {
+		t.Fatalf("write eval: %v", err)
+	}
+
+	agent := &fakeAgent{
+		obs: runner.AgentObservables{
+			ID:     "run_mcp",
+			Status: result.StatusFinished,
+		},
+	}
+	ev, err := eval.Load(evalPath)
+	if err != nil {
+		t.Fatalf("eval.Load: %v", err)
+	}
+	r, workspace, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
+		Model: "m",
+		Agent: agent,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(workspace) }()
+
+	got, err := os.ReadFile(filepath.Join(workspace, ".cursor", "mcp.json"))
+	if err != nil {
+		t.Fatalf("read seeded mcp: %v", err)
+	}
+	if string(got) != string(mcpBody) {
+		t.Fatalf("seeded mcp = %s, want %s", got, mcpBody)
+	}
+	for path := range r.Outcomes.Files {
+		if strings.HasPrefix(path, ".cursor") {
+			t.Fatalf("unexpected .cursor outcome %q", path)
+		}
+	}
+}
+
+func TestCursorSeedMCP(t *testing.T) {
+	ws := t.TempDir()
+	src := filepath.Join(t.TempDir(), "mcp.json")
+	body := []byte(`{"mcpServers":{}}`)
+	if err := os.WriteFile(src, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	agent := &runner.CursorAgent{}
+	if err := agent.SeedMCP(ws, src); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(ws, ".cursor", "mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(body) {
+		t.Fatalf("got %s", got)
+	}
+	if !agent.IgnoreOutcomePath(".cursor/mcp.json") {
+		t.Fatal("expected IgnoreOutcomePath for .cursor/mcp.json")
+	}
+}
+
 func TestRunFileCreatedAndDeleted(t *testing.T) {
 	dir := t.TempDir()
 	setupEval(t, dir)
