@@ -51,13 +51,25 @@ type Expects struct {
 }
 
 // TurnsExpect bounds run turn count.
+// All fields are optional; each set bound is checked independently.
+// Semantics: min ≥, max ≤, gt >, lt <, eq ==.
 type TurnsExpect struct {
+	Min *int `yaml:"min,omitempty"`
 	Max *int `yaml:"max,omitempty"`
+	Gt  *int `yaml:"gt,omitempty"`
+	Lt  *int `yaml:"lt,omitempty"`
+	Eq  *int `yaml:"eq,omitempty"`
 }
 
 // CostExpect bounds run cost in USD.
+// All fields are optional; each set bound is checked independently.
+// Semantics: min ≥, max ≤, gt >, lt <, eq ==.
 type CostExpect struct {
+	Min *float64 `yaml:"min,omitempty"`
 	Max *float64 `yaml:"max,omitempty"`
+	Gt  *float64 `yaml:"gt,omitempty"`
+	Lt  *float64 `yaml:"lt,omitempty"`
+	Eq  *float64 `yaml:"eq,omitempty"`
 }
 
 // ToolsUsedExpect checks toolsUsed membership.

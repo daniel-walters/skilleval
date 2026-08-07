@@ -54,35 +54,141 @@ func fail(path, reason string) Verdict {
 }
 
 func checkTurns(r *result.Result, e *eval.TurnsExpect) []Failure {
-	if e == nil || e.Max == nil {
+	if e == nil {
 		return nil
 	}
-	if r.Metrics.Turns > *e.Max {
-		return []Failure{{
-			Path:   "turns.max",
-			Reason: fmt.Sprintf("turns %d exceeds max %d", r.Metrics.Turns, *e.Max),
-		}}
-	}
-	return nil
+	return checkIntBounds("turns", r.Metrics.Turns, intBounds{
+		Min: e.Min,
+		Max: e.Max,
+		Gt:  e.Gt,
+		Lt:  e.Lt,
+		Eq:  e.Eq,
+	})
 }
 
 func checkCost(r *result.Result, e *eval.CostExpect) []Failure {
-	if e == nil || e.Max == nil {
+	if e == nil {
 		return nil
 	}
-	if r.Metrics.CostUSD == nil {
-		return []Failure{{
-			Path:   "costUSD.max",
-			Reason: "costUSD is unknown (nil), cannot satisfy max bound",
-		}}
+	return checkFloatBounds("costUSD", r.Metrics.CostUSD, floatBounds{
+		Min: e.Min,
+		Max: e.Max,
+		Gt:  e.Gt,
+		Lt:  e.Lt,
+		Eq:  e.Eq,
+	})
+}
+
+type intBounds struct {
+	Min, Max, Gt, Lt, Eq *int
+}
+
+type floatBounds struct {
+	Min, Max, Gt, Lt, Eq *float64
+}
+
+func checkIntBounds(prefix string, actual int, b intBounds) []Failure {
+	var failures []Failure
+	if b.Min != nil && actual < *b.Min {
+		failures = append(failures, Failure{
+			Path:   prefix + ".min",
+			Reason: fmt.Sprintf("%s %d below min %d", prefix, actual, *b.Min),
+		})
 	}
-	if *r.Metrics.CostUSD > *e.Max {
-		return []Failure{{
-			Path:   "costUSD.max",
-			Reason: fmt.Sprintf("costUSD %g exceeds max %g", *r.Metrics.CostUSD, *e.Max),
-		}}
+	if b.Max != nil && actual > *b.Max {
+		failures = append(failures, Failure{
+			Path:   prefix + ".max",
+			Reason: fmt.Sprintf("%s %d exceeds max %d", prefix, actual, *b.Max),
+		})
 	}
-	return nil
+	if b.Gt != nil && actual <= *b.Gt {
+		failures = append(failures, Failure{
+			Path:   prefix + ".gt",
+			Reason: fmt.Sprintf("%s %d not greater than %d", prefix, actual, *b.Gt),
+		})
+	}
+	if b.Lt != nil && actual >= *b.Lt {
+		failures = append(failures, Failure{
+			Path:   prefix + ".lt",
+			Reason: fmt.Sprintf("%s %d not less than %d", prefix, actual, *b.Lt),
+		})
+	}
+	if b.Eq != nil && actual != *b.Eq {
+		failures = append(failures, Failure{
+			Path:   prefix + ".eq",
+			Reason: fmt.Sprintf("%s %d not equal to %d", prefix, actual, *b.Eq),
+		})
+	}
+	return failures
+}
+
+func checkFloatBounds(prefix string, actual *float64, b floatBounds) []Failure {
+	ops := []struct {
+		name string
+		set  bool
+	}{
+		{"min", b.Min != nil},
+		{"max", b.Max != nil},
+		{"gt", b.Gt != nil},
+		{"lt", b.Lt != nil},
+		{"eq", b.Eq != nil},
+	}
+	anySet := false
+	for _, op := range ops {
+		if op.set {
+			anySet = true
+			break
+		}
+	}
+	if !anySet {
+		return nil
+	}
+	if actual == nil {
+		var failures []Failure
+		for _, op := range ops {
+			if !op.set {
+				continue
+			}
+			failures = append(failures, Failure{
+				Path:   prefix + "." + op.name,
+				Reason: fmt.Sprintf("%s is unknown (nil), cannot satisfy %s bound", prefix, op.name),
+			})
+		}
+		return failures
+	}
+	v := *actual
+	var failures []Failure
+	if b.Min != nil && v < *b.Min {
+		failures = append(failures, Failure{
+			Path:   prefix + ".min",
+			Reason: fmt.Sprintf("%s %g below min %g", prefix, v, *b.Min),
+		})
+	}
+	if b.Max != nil && v > *b.Max {
+		failures = append(failures, Failure{
+			Path:   prefix + ".max",
+			Reason: fmt.Sprintf("%s %g exceeds max %g", prefix, v, *b.Max),
+		})
+	}
+	if b.Gt != nil && v <= *b.Gt {
+		failures = append(failures, Failure{
+			Path:   prefix + ".gt",
+			Reason: fmt.Sprintf("%s %g not greater than %g", prefix, v, *b.Gt),
+		})
+	}
+	if b.Lt != nil && v >= *b.Lt {
+		failures = append(failures, Failure{
+			Path:   prefix + ".lt",
+			Reason: fmt.Sprintf("%s %g not less than %g", prefix, v, *b.Lt),
+		})
+	}
+	if b.Eq != nil && v != *b.Eq {
+		failures = append(failures, Failure{
+			Path:   prefix + ".eq",
+			Reason: fmt.Sprintf("%s %g not equal to %g", prefix, v, *b.Eq),
+		})
+	}
+	return failures
 }
 
 func checkToolsUsed(r *result.Result, e *eval.ToolsUsedExpect) []Failure {
