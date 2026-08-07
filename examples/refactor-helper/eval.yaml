@@ -1,0 +1,34 @@
+schemaVersion: 1
+name: refactor-helper
+prompt: |
+  Use the refactor-helper skill on this package:
+
+  1. Refactor src/foo.go for clarity (simplify Foo; keep package demo and the Foo name).
+  2. Extract a small helper into a new file src/new.go (e.g. a greetPrefix helper used by Foo).
+  3. Delete src/gone.go — it is obsolete legacy code.
+
+  Do all three: modify foo.go, create new.go, delete gone.go.
+skill: skills/refactor-helper
+input: fixtures/refactor-helper
+expects:
+  turns:
+    max: 15
+  costUSD:
+    max: 1.0
+  toolsUsed:
+    includes: [read, edit]
+    excludes: [web]
+  skills:
+    activated:
+      includes: [refactor-helper]
+  files:
+    src/foo.go:
+      status: modified
+      contains: /func Foo/
+    src/new.go:
+      status: created
+      contains: "package demo"
+    src/gone.go:
+      status: deleted
+  finalMessage:
+    contains: /Refactor/
