@@ -1,0 +1,60 @@
+---
+description: When to propose ADRs and where they live
+alwaysApply: true
+---
+
+# Architecture Decision Records
+
+Propose an ADR when a decision meets **most** of these:
+
+1. **Real alternatives** were considered and rejected (not the only sensible option).
+2. **Reversing is expensive** — schema/API breaks, data migration, many call sites, or user-visible contracts.
+3. **The why won’t live in the code** — tradeoffs, constraints, and non-goals would otherwise be lost.
+4. **People will disagree later** without a written decision (“why don’t we just…?”).
+5. **Cross-cutting** — affects multiple packages, surfaces, or workflows — not one local module.
+
+When those apply, **propose** an ADR (ask before writing unless the user already asked for one). Do not backfill ADRs for settled MVP defaults that are already the public contract (README, `schemaVersion`, package docs).
+
+## Usually not an ADR
+
+- Local refactors, naming, file layout
+- Obvious defaults with no serious alternative
+- Implementation details behind a stable interface
+- Open exploration (keep on the Linear issue / design notes until decided)
+- Anything fully specified by an existing versioned public schema or README contract
+
+## Location and naming
+
+- Directory: `docs/adrs/`
+- Filename: zero-padded number + underscore + kebab slug, markdown — e.g. `001_no-llm-judge.md`, `002_filesystem-history.md`
+- Next number = highest existing `NNN_` prefix + 1 (start at `001` if the directory is empty)
+
+## ADR shape (keep lean)
+
+One decision per file. Prefer:
+
+```markdown
+# NNN. Title
+
+## Status
+
+Accepted | Proposed | Superseded by NNN
+
+## Context
+
+What forces the decision.
+
+## Decision
+
+What we chose.
+
+## Consequences
+
+What gets easier, harder, or constrained.
+
+## Rejected alternatives
+
+Brief: what else was considered and why not.
+```
+
+Immutable once accepted: supersede with a new ADR; don’t rewrite history.
