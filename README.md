@@ -6,6 +6,91 @@ Run a skill against a prompt and fixtures, capture what happened, and check dete
 
 Core is Go; language SDKs may come later for writing tests in the ecosystem you prefer.
 
+## Install
+
+Prerequisites:
+
+- **Go** (module path targets Go 1.26+)
+- **Node.js** (both runners embed a small Node helper)
+
+Install the CLI:
+
+```bash
+go install github.com/daniel-walters/skilleval/cmd/skilleval@latest
+```
+
+Or build from a clone:
+
+```bash
+go build -o skilleval ./cmd/skilleval
+```
+
+## Authoring an eval
+
+An eval is a YAML file plus a skill directory (and optional input fixtures). Paths in the YAML are relative to the YAML file.
+
+Typical layout:
+
+```text
+my-eval/
+  eval.yaml
+  skills/my-skill/SKILL.md
+  fixtures/my-skill/   # optional; copied into the attempt workspace
+```
+
+### Skill
+
+Put a skill package at the path named by `skill`. It must contain `SKILL.md` with YAML frontmatter (`name`, `description`) and markdown instructions.
+
+### Eval YAML
+
+Minimum fields:
+
+| Field | Meaning |
+| --- | --- |
+| `schemaVersion` | `1` |
+| `name` | Eval id (also used under `--history`) |
+| `prompt` | What the agent should do |
+| `skill` | Directory containing `SKILL.md` |
+| `input` | Optional fixture directory copied into the workspace |
+| `expects` | Deterministic checks on the Result / workspace |
+
+String matches (`contains` / `equals`) are either a literal or a slash-delimited regex (`/pattern/`).
+
+File expects use workspace-relative paths. Optional `status` is one of `created`, `modified`, or `deleted`; you can also assert content with `contains` / `equals`.
+
+See [`examples/refactor-helper/eval.yaml`](examples/refactor-helper/eval.yaml) for a complete document.
+
+### Credentials
+
+Live runs need credentials in the environment (or a `.env` in the current working directory):
+
+- **Cursor** (`--runner cursor`, default): `CURSOR_API_KEY`
+- **Claude** (`--runner claude`): `ANTHROPIC_API_KEY`, or an existing `claude auth login` session
+
+```bash
+echo 'CURSOR_API_KEY=...' > .env
+# or
+echo 'ANTHROPIC_API_KEY=...' > .env
+```
+
+Already-set process environment variables win over `.env` (use that in CI). `.env` is gitignored.
+
+### Run to a Verdict
+
+```bash
+skilleval run examples/refactor-helper/eval.yaml --model <ID>
+```
+
+Use `--runner claude` for the Claude agent. The eval YAML stays runner-agnostic; the Result records which runner produced the attempt.
+
+After the run, expects are checked against the Result (and attempt workspace when needed). The CLI prints `PASS` or `FAIL` and exits non-zero when the check fails.
+
+Artifacts (defaults):
+
+- `result.json` — per-attempt Result
+- `result-summary.json` — summary with `passRate` and average metrics (written for every run, including single-attempt)
+
 ## Running evals
 
 ```bash
@@ -13,11 +98,7 @@ skilleval run <eval.yaml> --model <ID>
 skilleval run <eval.yaml> --model <ID> --runner claude
 ```
 
-`--runner` selects the agent runtime (`cursor` default, or `claude`). The eval YAML stays runner-agnostic; the Result records which runner produced the attempt.
-
-After the run, expects from the eval YAML are checked against the Result (and attempt workspace when needed). The CLI prints `PASS` or `FAIL` and exits non-zero when the check fails.
-
-Every run also writes a summary JSON beside `--out` (default `result-summary.json`) with `passRate` and average metrics, including single-attempt runs.
+Every run writes a summary JSON beside `--out` (default `result-summary.json`) with `passRate` and average metrics, including single-attempt runs.
 
 ### Multi-run batches
 
@@ -63,19 +144,6 @@ skilleval compare result-summary.json .skilleval/history/refactor-helper/latest.
 ```
 
 In CI, upload the current `*-summary.json` as an artifact; on the next job, download the prior summary and pass it as `--baseline`.
-
-Live runs need Node.js (both runners embed a small Node helper) and credentials:
-
-- **Cursor** (`--runner cursor`, default): `CURSOR_API_KEY` in the process environment, or a `.env` file in the current working directory.
-- **Claude** (`--runner claude`): `ANTHROPIC_API_KEY`, or an existing `claude auth login` session.
-
-```bash
-echo 'CURSOR_API_KEY=...' > .env
-# or
-echo 'ANTHROPIC_API_KEY=...' > .env
-```
-
-Already-set process environment variables win over `.env` (use that in CI). `.env` is gitignored.
 
 ## CI
 
