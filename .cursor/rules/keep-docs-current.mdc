@@ -1,0 +1,31 @@
+---
+description: Keep README, examples, and docs in sync with user-facing changes
+alwaysApply: true
+---
+
+# Keep Docs Current
+
+When a change alters **user-visible** product behavior, update the matching docs in the **same** change set. Do not leave README, `examples/`, or `docs/` stale.
+
+## When this applies
+
+Trigger on changes to (non-exhaustive):
+
+- CLI flags, subcommands, exit behavior, or printed outcomes (`cmd/skilleval`)
+- Eval YAML schema or expects semantics (`eval/`)
+- Runner credentials, prerequisites, or normalized observables authors rely on (`runner/`)
+- Checker pass/fail semantics that docs describe (`checker/`)
+- Install, build, or env setup assumptions
+
+## Required follow-through
+
+In the same PR / commit series:
+
+- Update `README.md` (and any `docs/**` user guides) so install, authoring, run, credentials, and examples stay accurate
+- Update `examples/` when the public eval contract or a worked example would otherwise mislead newcomers
+- Prefer docs in the same logical commit as the behavior change, or an immediately following `docs:` commit — not a later cleanup
+
+## When not to rewrite docs
+
+- Pure internal refactors with no user-facing contract change
+- Inventing a full expects / tool catalog when only an example-level note is needed
