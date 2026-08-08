@@ -230,7 +230,7 @@ Each attempt gets its own Result. With `attempts > 1`, the CLI also writes `resu
 
 ## History and comparison
 
-By default, runs retain summaries under `.skilleval/history/<eval-name>/` and compare against the prior `latest.json` when one exists. `.skilleval/` is gitignored.
+By default, runs retain summaries under `.skilleval/history/<eval-name>/` and compare against the prior `latest.json` when one exists. `.skilleval/` is gitignored. On a TTY (or with `FORCE_COLOR`), `PASS`/`FAIL` and polarity-aware baseline deltas are colored green/red; set `NO_COLOR` to disable.
 
 ```bash
 skilleval run ./eval.yaml --model composer-2.5
@@ -238,7 +238,7 @@ skilleval run ./eval.yaml --model composer-2.5 --no-history --no-baseline
 skilleval compare result-summary.json .skilleval/history/refactor-helper/latest.json
 ```
 
-In TypeScript, pass `noHistory` / `noBaseline`, or `history` / `baseline` path overrides. Comparison deltas do not change exit status.
+In TypeScript, `run()` tees the same CLI report (including baseline compare) to stdout. Pass `noHistory` / `noBaseline`, or `history` / `baseline` path overrides. Comparison deltas do not change exit status.
 
 In CI, upload `*-summary.json` as an artifact; on the next job, download the prior summary and pass `--baseline`.
 

@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/daniel-walters/skilleval/checker"
 	"github.com/daniel-walters/skilleval/history"
+	"github.com/daniel-walters/skilleval/internal/termcolor"
 	"github.com/daniel-walters/skilleval/summary"
 )
 
@@ -103,6 +106,56 @@ func TestReportVerdict(t *testing.T) {
 		want := "FAIL\n  turns.max: turns 12 exceeds max 10\n  finalMessage.contains: finalMessage does not contain \"Done\"\n"
 		if got != want {
 			t.Fatalf("output = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("pass colored", func(t *testing.T) {
+		t.Setenv("FORCE_COLOR", "1")
+		t.Setenv("NO_COLOR", "")
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = r.Close() })
+		if err := printVerdict(w, checker.Verdict{Passed: true}); err != nil {
+			t.Fatal(err)
+		}
+		_ = w.Close()
+		out, err := io.ReadAll(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := termcolor.Green + "PASS" + termcolor.Reset + "\n"
+		if got := string(out); got != want {
+			t.Fatalf("output = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("fail colored", func(t *testing.T) {
+		t.Setenv("FORCE_COLOR", "1")
+		t.Setenv("NO_COLOR", "")
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = r.Close() })
+		if err := printVerdict(w, checker.Verdict{
+			Passed:   false,
+			Failures: []checker.Failure{{Path: "turns.max", Reason: "too many"}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		_ = w.Close()
+		out, err := io.ReadAll(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := string(out)
+		if !strings.Contains(got, termcolor.Red+"FAIL"+termcolor.Reset) {
+			t.Fatalf("missing colored FAIL: %q", got)
+		}
+		if !strings.Contains(got, termcolor.Red+"  turns.max: too many"+termcolor.Reset) {
+			t.Fatalf("missing colored failure line: %q", got)
 		}
 	})
 }
