@@ -43,6 +43,9 @@ type PassRateExpect struct {
 // Expects are deterministic predicates over a Result (and workspace files).
 type Expects struct {
 	Turns        *TurnsExpect          `yaml:"turns,omitempty"`
+	DurationMs   *TurnsExpect          `yaml:"durationMs,omitempty"`
+	ToolCalls    *TurnsExpect          `yaml:"toolCalls,omitempty"`
+	Usage        *UsageExpect          `yaml:"usage,omitempty"`
 	CostUSD      *CostExpect           `yaml:"costUSD,omitempty"`
 	ToolsUsed    *ToolsUsedExpect      `yaml:"toolsUsed,omitempty"`
 	Skills       *SkillsExpect         `yaml:"skills,omitempty"`
@@ -59,6 +62,15 @@ type TurnsExpect struct {
 	Gt  *int `yaml:"gt,omitempty"`
 	Lt  *int `yaml:"lt,omitempty"`
 	Eq  *int `yaml:"eq,omitempty"`
+}
+
+// UsageExpect bounds token usage fields with the same int ops as turns.
+type UsageExpect struct {
+	InputTokens      *TurnsExpect `yaml:"inputTokens,omitempty"`
+	OutputTokens     *TurnsExpect `yaml:"outputTokens,omitempty"`
+	CacheReadTokens  *TurnsExpect `yaml:"cacheReadTokens,omitempty"`
+	CacheWriteTokens *TurnsExpect `yaml:"cacheWriteTokens,omitempty"`
+	TotalTokens      *TurnsExpect `yaml:"totalTokens,omitempty"`
 }
 
 // CostExpect bounds run cost in USD.
@@ -83,9 +95,10 @@ type SkillsExpect struct {
 	Activated *StringSetExpect `yaml:"activated,omitempty"`
 }
 
-// StringSetExpect requires listed values to be present.
+// StringSetExpect checks membership of listed values.
 type StringSetExpect struct {
 	Includes []string `yaml:"includes,omitempty"`
+	Excludes []string `yaml:"excludes,omitempty"`
 }
 
 // FileExpect checks a path's outcome status and/or content.

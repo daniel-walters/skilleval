@@ -1,0 +1,10 @@
+schemaVersion: 1
+name: fail-usage
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  usage:
+    inputTokens:
+      max: 50
+    totalTokens:
+      lt: 100

@@ -1,0 +1,20 @@
+schemaVersion: 1
+name: pass-extended-metrics
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  durationMs:
+    min: 1000
+    max: 20000
+  toolCalls:
+    min: 1
+    max: 5
+  usage:
+    inputTokens:
+      max: 200
+    totalTokens:
+      eq: 150
+  skills:
+    activated:
+      includes: [helper]
+      excludes: [other-skill]

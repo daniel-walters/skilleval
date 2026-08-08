@@ -74,6 +74,14 @@ describe("expect turns / costUSD", () => {
     expect(r).costUSD.toBeGreaterThan(0).toBeLessThan(2).toBeEqual(0.25);
   });
 
+  it("passes durationMs, toolCalls count, and usage on pass-extended-metrics", () => {
+    const r = loadResult("pass-extended-metrics");
+    expect(r).durationMs.toBeGreaterThanOrEqual(1000).toBeLessThanOrEqual(20000);
+    expect(r).toolCalls.toBeGreaterThanOrEqual(1).toBeLessThanOrEqual(5);
+    expect(r).usage.inputTokens.toBeLessThanOrEqual(200);
+    expect(r).usage.totalTokens.toBeEqual(150);
+  });
+
   it("fails turns.max", () => {
     const r = loadResult("fail-turns");
     assertFail(() => expect(r).turns.toBeLessThanOrEqual(5), "turns.max");
@@ -99,6 +107,22 @@ describe("expect turns / costUSD", () => {
     assertFail(() => expect(r).turns.toBeEqual(3), "turns.eq");
   });
 
+  it("fails durationMs.max", () => {
+    const r = loadResult("fail-duration-ms");
+    assertFail(() => expect(r).durationMs.toBeLessThanOrEqual(1000), "durationMs.max");
+  });
+
+  it("fails toolCalls.min", () => {
+    const r = loadResult("fail-tool-calls");
+    assertFail(() => expect(r).toolCalls.toBeGreaterThanOrEqual(1), "toolCalls.min");
+  });
+
+  it("fails usage bounds", () => {
+    const r = loadResult("fail-usage");
+    assertFail(() => expect(r).usage.inputTokens.toBeLessThanOrEqual(50), "usage.inputTokens.max");
+    assertFail(() => expect(r).usage.totalTokens.toBeLessThan(100), "usage.totalTokens.lt");
+  });
+
   it("fails costUSD.max", () => {
     const r = loadResult("fail-cost-exceeded");
     assertFail(() => expect(r).costUSD.toBeLessThanOrEqual(0.1), "costUSD.max");
@@ -119,6 +143,7 @@ describe("expect tools and skills", () => {
     expect(r).toolsUsed.toInclude("read", "edit");
     expect(r).toolsUsed.not.toInclude("web");
     expect(r).skills.activated.toInclude("helper");
+    expect(r).skills.activated.not.toInclude("other-skill");
   });
 
   it("fails toolsUsed.includes and excludes", () => {
@@ -132,6 +157,14 @@ describe("expect tools and skills", () => {
     assertFail(
       () => expect(r).skills.activated.toInclude("helper"),
       "skills.activated.includes",
+    );
+  });
+
+  it("fails skills.activated.excludes", () => {
+    const r = loadResult("fail-skills-excludes");
+    assertFail(
+      () => expect(r).skills.activated.not.toInclude("helper"),
+      "skills.activated.excludes",
     );
   });
 });

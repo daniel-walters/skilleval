@@ -81,9 +81,10 @@ const { result, workspace } = await run(ev, { model: process.env.MODEL! });
 
 | Namespace | Matchers |
 | --- | --- |
-| `turns` / `costUSD` | `toBeLessThan`, `toBeLessThanOrEqual`, `toBeGreaterThan`, `toBeGreaterThanOrEqual`, `toBeEqual` |
+| `turns` / `durationMs` / `toolCalls` / `costUSD` | `toBeLessThan`, `toBeLessThanOrEqual`, `toBeGreaterThan`, `toBeGreaterThanOrEqual`, `toBeEqual` |
+| `usage.inputTokens` (and `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `totalTokens`) | same numeric matchers |
 | `toolsUsed` | `toInclude(...strings)`, `.not.toInclude(...strings)` |
-| `skills.activated` | `toInclude(...strings)` |
+| `skills.activated` | `toInclude(...strings)`, `.not.toInclude(...strings)` |
 | `file(path)` | `toHaveStatus`, `toHaveBeenCreated` / `Modified` / `Deleted`, `toContain`, `toEqual` (pass `workspace` for content) |
 | `finalMessage` | `toContain(string)`, `toMatch(RegExp)`, `toEqual(string \| RegExp)` |
 

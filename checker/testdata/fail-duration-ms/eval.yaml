@@ -1,0 +1,7 @@
+schemaVersion: 1
+name: fail-duration-ms
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  durationMs:
+    max: 1000

@@ -1,0 +1,8 @@
+schemaVersion: 1
+name: fail-skills-excludes
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  skills:
+    activated:
+      excludes: [helper]

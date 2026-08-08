@@ -4,4 +4,8 @@ prompt: Do the thing
 skill: ../skills/helper
 expects:
   turns: {}
+  durationMs: {}
+  toolCalls: {}
+  usage:
+    inputTokens: {}
   costUSD: {}

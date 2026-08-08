@@ -9,6 +9,15 @@ export { ExpectError } from "./matchers/error.js";
 
 export interface Expectation {
   readonly turns: NumericIntMatchers;
+  readonly durationMs: NumericIntMatchers;
+  readonly toolCalls: NumericIntMatchers;
+  readonly usage: {
+    readonly inputTokens: NumericIntMatchers;
+    readonly outputTokens: NumericIntMatchers;
+    readonly cacheReadTokens: NumericIntMatchers;
+    readonly cacheWriteTokens: NumericIntMatchers;
+    readonly totalTokens: NumericIntMatchers;
+  };
   readonly costUSD: NumericFloatMatchers;
   readonly toolsUsed: ToolsUsedMatchers;
   readonly skills: { readonly activated: SkillsActivatedMatchers };
@@ -45,6 +54,41 @@ class ExpectationImpl implements Expectation {
   get turns(): NumericIntMatchers {
     this.ensureFinished();
     return new NumericIntMatchers("turns", this.result.metrics.turns);
+  }
+
+  get durationMs(): NumericIntMatchers {
+    this.ensureFinished();
+    return new NumericIntMatchers("durationMs", this.result.metrics.durationMs);
+  }
+
+  get toolCalls(): NumericIntMatchers {
+    this.ensureFinished();
+    const calls = this.result.metrics.toolCalls ?? [];
+    return new NumericIntMatchers("toolCalls", calls.length);
+  }
+
+  get usage(): {
+    readonly inputTokens: NumericIntMatchers;
+    readonly outputTokens: NumericIntMatchers;
+    readonly cacheReadTokens: NumericIntMatchers;
+    readonly cacheWriteTokens: NumericIntMatchers;
+    readonly totalTokens: NumericIntMatchers;
+  } {
+    this.ensureFinished();
+    const u = this.result.metrics.usage ?? {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 0,
+    };
+    return {
+      inputTokens: new NumericIntMatchers("usage.inputTokens", u.inputTokens),
+      outputTokens: new NumericIntMatchers("usage.outputTokens", u.outputTokens),
+      cacheReadTokens: new NumericIntMatchers("usage.cacheReadTokens", u.cacheReadTokens),
+      cacheWriteTokens: new NumericIntMatchers("usage.cacheWriteTokens", u.cacheWriteTokens),
+      totalTokens: new NumericIntMatchers("usage.totalTokens", u.totalTokens),
+    };
   }
 
   get costUSD(): NumericFloatMatchers {

@@ -43,4 +43,21 @@ export class SkillsActivatedMatchers {
     }
     return this;
   }
+
+  get not(): { toInclude: (...skills: string[]) => SkillsActivatedMatchers } {
+    return {
+      toInclude: (...skills: string[]) => {
+        const set = new Set(this.activated);
+        for (const skill of skills) {
+          if (set.has(skill)) {
+            fail(
+              "skills.activated.excludes",
+              `forbidden activated skill ${JSON.stringify(skill)} was activated`,
+            );
+          }
+        }
+        return this;
+      },
+    };
+  }
 }

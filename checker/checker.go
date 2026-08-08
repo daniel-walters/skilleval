@@ -37,6 +37,9 @@ func Check(r *result.Result, expects eval.Expects, workspace string) Verdict {
 
 	var failures []Failure
 	failures = append(failures, checkTurns(r, expects.Turns)...)
+	failures = append(failures, checkDurationMs(r, expects.DurationMs)...)
+	failures = append(failures, checkToolCalls(r, expects.ToolCalls)...)
+	failures = append(failures, checkUsage(r, expects.Usage)...)
 	failures = append(failures, checkCost(r, expects.CostUSD)...)
 	failures = append(failures, checkToolsUsed(r, expects.ToolsUsed)...)
 	failures = append(failures, checkSkills(r, expects.Skills)...)
@@ -58,6 +61,58 @@ func checkTurns(r *result.Result, e *eval.TurnsExpect) []Failure {
 		return nil
 	}
 	return checkIntBounds("turns", r.Metrics.Turns, intBounds{
+		Min: e.Min,
+		Max: e.Max,
+		Gt:  e.Gt,
+		Lt:  e.Lt,
+		Eq:  e.Eq,
+	})
+}
+
+func checkDurationMs(r *result.Result, e *eval.TurnsExpect) []Failure {
+	if e == nil {
+		return nil
+	}
+	return checkIntBounds("durationMs", int(r.Metrics.DurationMs), intBounds{
+		Min: e.Min,
+		Max: e.Max,
+		Gt:  e.Gt,
+		Lt:  e.Lt,
+		Eq:  e.Eq,
+	})
+}
+
+func checkToolCalls(r *result.Result, e *eval.TurnsExpect) []Failure {
+	if e == nil {
+		return nil
+	}
+	return checkIntBounds("toolCalls", len(r.Metrics.ToolCalls), intBounds{
+		Min: e.Min,
+		Max: e.Max,
+		Gt:  e.Gt,
+		Lt:  e.Lt,
+		Eq:  e.Eq,
+	})
+}
+
+func checkUsage(r *result.Result, e *eval.UsageExpect) []Failure {
+	if e == nil {
+		return nil
+	}
+	var failures []Failure
+	failures = append(failures, checkUsageField("usage.inputTokens", r.Metrics.Usage.InputTokens, e.InputTokens)...)
+	failures = append(failures, checkUsageField("usage.outputTokens", r.Metrics.Usage.OutputTokens, e.OutputTokens)...)
+	failures = append(failures, checkUsageField("usage.cacheReadTokens", r.Metrics.Usage.CacheReadTokens, e.CacheReadTokens)...)
+	failures = append(failures, checkUsageField("usage.cacheWriteTokens", r.Metrics.Usage.CacheWriteTokens, e.CacheWriteTokens)...)
+	failures = append(failures, checkUsageField("usage.totalTokens", r.Metrics.Usage.TotalTokens, e.TotalTokens)...)
+	return failures
+}
+
+func checkUsageField(prefix string, actual int, e *eval.TurnsExpect) []Failure {
+	if e == nil {
+		return nil
+	}
+	return checkIntBounds(prefix, actual, intBounds{
 		Min: e.Min,
 		Max: e.Max,
 		Gt:  e.Gt,
@@ -227,6 +282,14 @@ func checkSkills(r *result.Result, e *eval.SkillsExpect) []Failure {
 			failures = append(failures, Failure{
 				Path:   "skills.activated.includes",
 				Reason: fmt.Sprintf("missing required activated skill %q", skill),
+			})
+		}
+	}
+	for _, skill := range e.Activated.Excludes {
+		if activated[skill] {
+			failures = append(failures, Failure{
+				Path:   "skills.activated.excludes",
+				Reason: fmt.Sprintf("forbidden activated skill %q was activated", skill),
 			})
 		}
 	}

@@ -84,7 +84,7 @@ String matches (`contains` / `equals`) are either a literal or a slash-delimited
 
 File expects use workspace-relative paths. Optional `status` is one of `created`, `modified`, or `deleted`; you can also assert content with `contains` / `equals`.
 
-`turns` and `costUSD` accept optional numeric bounds (all independently checked when set):
+`turns`, `durationMs`, `toolCalls` (count of `metrics.toolCalls`), and `costUSD` accept optional numeric bounds (all independently checked when set):
 
 | Field | Meaning |
 | --- | --- |
@@ -93,6 +93,10 @@ File expects use workspace-relative paths. Optional `status` is one of `created`
 | `gt` | actual > bound |
 | `lt` | actual < bound |
 | `eq` | actual == bound |
+
+`usage` nests the same int bounds under `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, and `totalTokens` (e.g. `usage.totalTokens.max`).
+
+`toolsUsed` and `skills.activated` support `includes` / `excludes` membership lists.
 
 Nil `costUSD` on the Result fails any set cost bound. Existing max-only evals keep working.
 
