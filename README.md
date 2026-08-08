@@ -168,7 +168,7 @@ const { result, workspace } = await run(ev, { model: process.env.MODEL! });
 // expect(result, workspace)…
 ```
 
-Matcher namespaces (`turns` / `costUSD`, `toolsUsed`, `skills.activated`, `file`, `finalMessage`) are documented in [`sdk/typescript/README.md`](sdk/typescript/README.md).
+Matcher namespaces (`turns` / `durationMs` / `toolCalls` / `usage` / `costUSD`, `toolsUsed`, `skills.activated`, `file`, `finalMessage`) are documented in [`sdk/typescript/README.md`](sdk/typescript/README.md).
 
 ### MCP
 
