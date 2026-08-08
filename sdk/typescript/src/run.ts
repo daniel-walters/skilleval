@@ -7,7 +7,7 @@ import { stringify as stringifyYaml } from "yaml";
 
 import { missingBinaryHint, resolveSkillevalBinary } from "./binary.js";
 import { loadDotEnv } from "./envfile.js";
-import type { EvalDocument, RunOptions, RunOverrides } from "./eval.js";
+import type { EvalDocument, RunOptions, RunOverrides } from "./evalTypes.js";
 import type { Result, Summary } from "./result.js";
 
 export interface RunResult {

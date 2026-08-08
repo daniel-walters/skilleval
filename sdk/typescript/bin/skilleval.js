@@ -1,31 +1,9 @@
 #!/usr/bin/env node
 /**
- * npm bin entry: forwards argv to the Go skilleval binary
- * (packaged platform optionalDependency, SKILLEVAL_BIN, or PATH).
+ * npm bin entry: routes TypeScript/JavaScript evals (and discovery) in Node;
+ * forwards YAML and other commands to the Go skilleval binary.
  */
-import { spawn } from "node:child_process";
+import { main } from "../dist/cli.js";
 
-import { missingBinaryHint, resolveSkillevalBinary } from "../dist/binary.js";
-
-const bin = resolveSkillevalBinary();
-const args = process.argv.slice(2);
-
-const child = spawn(bin, args, {
-  stdio: "inherit",
-  env: process.env,
-  windowsHide: true,
-});
-
-child.on("error", (err) => {
-  const detail = err instanceof Error ? err.message : String(err);
-  console.error(`skilleval: failed to spawn ${bin}: ${detail} (${missingBinaryHint(bin)})`);
-  process.exit(1);
-});
-
-child.on("close", (code, signal) => {
-  if (signal) {
-    process.kill(process.pid, signal);
-    return;
-  }
-  process.exit(code ?? 1);
-});
+const code = await main(process.argv.slice(2));
+process.exit(code);
