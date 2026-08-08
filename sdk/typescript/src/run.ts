@@ -25,7 +25,9 @@ type CliFlags = {
   runner?: string;
   out?: string;
   history?: string;
+  noHistory?: boolean;
   baseline?: string;
+  noBaseline?: boolean;
 };
 
 /**
@@ -85,7 +87,9 @@ async function resolveEvalAndFlags(
         runner: opts.runner,
         out: opts.out,
         history: opts.history,
+        noHistory: opts.noHistory,
         baseline: opts.baseline,
+        noBaseline: opts.noBaseline,
       },
       cleanup: tmpDir,
     };
@@ -106,7 +110,9 @@ async function resolveEvalAndFlags(
       runner: overrides?.runner ?? readStringField(evalOrOpts, "runner"),
       out: overrides?.out ?? readStringField(evalOrOpts, "out"),
       history: overrides?.history ?? readStringField(evalOrOpts, "history"),
+      noHistory: overrides?.noHistory ?? readBoolField(evalOrOpts, "noHistory"),
       baseline: overrides?.baseline ?? readStringField(evalOrOpts, "baseline"),
+      noBaseline: overrides?.noBaseline ?? readBoolField(evalOrOpts, "noBaseline"),
     },
   };
 }
@@ -141,6 +147,34 @@ function readStringField(obj: object, key: string): string | undefined {
   return typeof v === "string" && v ? v : undefined;
 }
 
+function readBoolField(obj: object, key: string): boolean | undefined {
+  if (!(key in obj)) {
+    return undefined;
+  }
+  const v = (obj as Record<string, unknown>)[key];
+  return typeof v === "boolean" ? v : undefined;
+}
+
+/**
+ * Append history/baseline CLI flags. Omits flags when unset so the Go CLI
+ * defaults (retain under .skilleval/history, auto-compare latest) apply.
+ */
+export function appendReportFlags(
+  args: string[],
+  flags: Pick<CliFlags, "history" | "noHistory" | "baseline" | "noBaseline">,
+): void {
+  if (flags.noHistory) {
+    args.push("--no-history");
+  } else if (flags.history) {
+    args.push("--history", path.resolve(flags.history));
+  }
+  if (flags.noBaseline) {
+    args.push("--no-baseline");
+  } else if (flags.baseline) {
+    args.push("--baseline", path.resolve(flags.baseline));
+  }
+}
+
 async function invokeCli(evalPath: string, flags: CliFlags): Promise<RunResult> {
   const bin = resolveBinary();
   let outPath: string;
@@ -156,12 +190,7 @@ async function invokeCli(evalPath: string, flags: CliFlags): Promise<RunResult> 
   if (flags.runner) {
     args.push("--runner", flags.runner);
   }
-  if (flags.history) {
-    args.push("--history", path.resolve(flags.history));
-  }
-  if (flags.baseline) {
-    args.push("--baseline", path.resolve(flags.baseline));
-  }
+  appendReportFlags(args, flags);
 
   try {
     const { stdout, stderr, code } = await spawnCapture(bin, args);

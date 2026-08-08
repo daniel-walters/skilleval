@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { EvalDocument, RunOptions } from "../src/eval.js";
-import { parseWroteLines, shouldWriteTempEval, summaryOutPath } from "../src/run.js";
+import {
+  appendReportFlags,
+  parseWroteLines,
+  shouldWriteTempEval,
+  summaryOutPath,
+} from "../src/run.js";
 import {
   matchContains,
   matchEquals,
@@ -71,6 +76,40 @@ describe("summaryOutPath", () => {
   it("inserts -summary before extension", () => {
     assert.equal(summaryOutPath("/tmp/result.json"), "/tmp/result-summary.json");
     assert.equal(summaryOutPath("out"), "out-summary");
+  });
+});
+
+describe("appendReportFlags", () => {
+  it("omits flags so CLI defaults apply", () => {
+    const args: string[] = [];
+    appendReportFlags(args, {});
+    assert.deepEqual(args, []);
+  });
+
+  it("forwards opt-outs", () => {
+    const args: string[] = [];
+    appendReportFlags(args, { noHistory: true, noBaseline: true });
+    assert.deepEqual(args, ["--no-history", "--no-baseline"]);
+  });
+
+  it("forwards path overrides when not opting out", () => {
+    const args: string[] = [];
+    appendReportFlags(args, { history: "/tmp/hist", baseline: "/tmp/base.json" });
+    assert.equal(args[0], "--history");
+    assert.equal(args[2], "--baseline");
+    assert.match(args[1]!, /hist$/);
+    assert.match(args[3]!, /base\.json$/);
+  });
+
+  it("prefers opt-outs over path overrides", () => {
+    const args: string[] = [];
+    appendReportFlags(args, {
+      noHistory: true,
+      history: "/tmp/hist",
+      noBaseline: true,
+      baseline: "/tmp/base.json",
+    });
+    assert.deepEqual(args, ["--no-history", "--no-baseline"]);
   });
 });
 
