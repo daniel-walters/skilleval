@@ -2,9 +2,9 @@
  * TypeScript authoring equivalent of eval.yaml.
  * Paths are relative to this directory (same as the YAML).
  *
- * Prerequisites: skilleval on PATH (or SKILLEVAL_BIN), Node 18+,
- * CURSOR_API_KEY (or ANTHROPIC_API_KEY), and MODEL in the process env
- * (run() does not load .env).
+ * Prerequisites: Node 18+, `@danielwaltersdev/skilleval` (ships platform CLI;
+ * or SKILLEVAL_BIN / PATH). CURSOR_API_KEY (or ANTHROPIC_API_KEY) and MODEL
+ * in the process env (run() does not load .env).
  *
  *   MODEL=composer-2.5 npx tsx eval.ts
  */

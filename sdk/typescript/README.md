@@ -7,7 +7,7 @@ YAML remains valid CLI authoring; this package is the typed alternative. Root au
 ## Prerequisites
 
 - Node.js 18+
-- `skilleval` binary on `PATH`, or set `SKILLEVAL_BIN` to the binary path
+- Node.js 18+
 - Runner credentials (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`) and `MODEL` in the **process** environment — TypeScript `run()` does not load `.env` (the Go CLI does when invoked directly)
 
 ## Install
@@ -16,7 +16,17 @@ YAML remains valid CLI authoring; this package is the typed alternative. Root au
 npm install @danielwaltersdev/skilleval
 ```
 
-The package drives the Go `skilleval` CLI — install a [release binary](https://github.com/daniel-walters/skilleval/releases) or `go install`, and keep it on `PATH` (or set `SKILLEVAL_BIN`).
+That pulls in a platform optionalDependency (`@danielwaltersdev/skilleval-<os>-<arch>`) with the Go binary and links `skilleval` on `node_modules/.bin`. `run()` and `package.json` scripts use it automatically:
+
+```json
+{
+  "scripts": {
+    "eval": "skilleval run ./eval.yaml --model \"$MODEL\""
+  }
+}
+```
+
+Resolution order: `SKILLEVAL_BIN` → packaged platform binary → `skilleval` on `PATH`.
 
 From a clone of this repo (development):
 
@@ -25,6 +35,8 @@ cd sdk/typescript
 npm install
 npm run build
 ```
+
+For local `run()` / bin without a published platform package, build the Go CLI and put it on `PATH`, or set `SKILLEVAL_BIN`.
 
 ## Usage
 
