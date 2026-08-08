@@ -32,3 +32,15 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.2
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: sdk/typescript/package-lock.json
+
+      - name: TypeScript SDK tests
+        working-directory: sdk/typescript
+        run: |
+          npm ci
+          npm test

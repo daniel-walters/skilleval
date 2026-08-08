@@ -312,7 +312,7 @@ In CI, upload the current `*-summary.json` as an artifact; on the next job, down
 
 ## CI
 
-GitHub Actions is the source of truth for merge readiness. On pull requests and pushes to `main`, CI runs `gofmt`, `go vet`, `go test`, and `golangci-lint`. Local pre-commit is recommended for a faster feedback loop, but a green CI check is what counts for merge.
+GitHub Actions is the source of truth for merge readiness. On pull requests and pushes to `main`, CI runs `gofmt`, `go vet`, `go test`, `golangci-lint`, and the TypeScript SDK tests (`sdk/typescript`). Local pre-commit is recommended for a faster feedback loop, but a green CI check is what counts for merge.
 
 ### Harness agent SDK pins
 
