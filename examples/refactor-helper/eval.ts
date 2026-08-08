@@ -6,8 +6,8 @@
  * or SKILLEVAL_BIN / PATH). CURSOR_API_KEY (or ANTHROPIC_API_KEY) via process
  * env or cwd `.env` (`run()` loads `.env`).
  *
- *   MODEL=composer-2.5 skilleval run ./eval.ts
- *   MODEL=composer-2.5 skilleval run
+ *   skilleval run ./eval.ts
+ *   skilleval run
  */
 import { run, expect } from "@danielwaltersdev/skilleval";
 
@@ -22,7 +22,7 @@ const { result, workspace } = await run({
 Do all three: modify foo.go, create new.go, delete gone.go.`,
   skill: "./skills/refactor-helper",
   input: "./fixtures/refactor-helper",
-  model: process.env.MODEL!,
+  model: "composer-2.5",
 });
 
 expect(result).turns.toBeLessThanOrEqual(15);

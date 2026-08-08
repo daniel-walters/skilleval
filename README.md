@@ -11,7 +11,7 @@ const { result, workspace } = await run({
   name: "refactor-helper",
   prompt: "…",
   skill: "./skills/refactor-helper",
-  model: process.env.MODEL!,
+  model: "composer-2.5",
 });
 
 expect(result).skills.activated.toInclude("refactor-helper");
@@ -40,7 +40,6 @@ Credentials for live runs (cwd `.env` is loaded automatically; process env wins)
 
 ```bash
 echo 'CURSOR_API_KEY=...' > .env
-export MODEL=composer-2.5
 ```
 
 Prefer a standalone binary? Grab one from [GitHub Releases](https://github.com/daniel-walters/skilleval/releases), or `go install github.com/daniel-walters/skilleval/cmd/skilleval@v0.1.0`.
@@ -75,7 +74,7 @@ const { result, workspace } = await run({
 Do all three: modify foo.go, create new.go, delete gone.go.`,
   skill: "./skills/refactor-helper",
   input: "./fixtures/refactor-helper",
-  model: process.env.MODEL!,
+  model: "composer-2.5",
 });
 
 expect(result).turns.toBeLessThanOrEqual(15);
@@ -88,7 +87,7 @@ expect(result, workspace).file("src/gone.go").toHaveBeenDeleted();
 expect(result).finalMessage.toMatch(/Refactor/);
 ```
 
-Run it:
+Run it (paths like `skill` / `input` are relative to the eval file’s directory — keep `eval.ts` next to `skills/` and `fixtures/`, or use paths relative to that folder):
 
 ```bash
 skilleval run ./eval.ts
@@ -112,7 +111,7 @@ Load an existing YAML eval and assert in TypeScript if you want both:
 import { loadEval, run, expect } from "@danielwaltersdev/skilleval";
 
 const ev = await loadEval("./eval.yaml");
-const { result, workspace } = await run(ev, { model: process.env.MODEL! });
+const { result, workspace } = await run(ev, { model: "composer-2.5" });
 ```
 
 ### YAML
@@ -213,7 +212,7 @@ await run({
   name: "refactor-helper",
   prompt: "…",
   skill: "./skills/refactor-helper",
-  model: process.env.MODEL!,
+  model: "composer-2.5",
   attempts: 10,
   passRate: { min: 0.8 },
 });

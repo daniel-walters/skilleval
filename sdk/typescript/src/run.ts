@@ -60,13 +60,14 @@ export async function run(
   }
 }
 
-async function resolveEvalAndFlags(
+/** Resolve eval path + CLI flags (exported for unit tests). */
+export async function resolveEvalAndFlags(
   evalOrOpts: RunOptions | EvalDocument,
   overrides?: RunOverrides,
 ): Promise<{ evalPath: string; flags: CliFlags; cleanup?: string }> {
   if (shouldWriteTempEval(evalOrOpts, overrides)) {
     const opts = evalOrOpts as RunOptions;
-    if (!opts.model) {
+    if (typeof opts.model !== "string" || !opts.model) {
       throw new Error("run: model is required");
     }
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "skilleval-ts-"));
@@ -108,7 +109,9 @@ async function resolveEvalAndFlags(
 
   const ev = evalOrOpts as EvalDocument;
   if (!ev.sourcePath) {
-    throw new Error("run: loaded eval is missing sourcePath; use loadEval(path)");
+    throw new Error(
+      "run: expected a loaded eval from loadEval(path), or pass model on run({ … })",
+    );
   }
   const model = overrides?.model ?? readStringField(evalOrOpts, "model");
   if (!model) {
@@ -133,6 +136,8 @@ async function resolveEvalAndFlags(
  * True when run should materialize a temp eval YAML.
  * Loaded evals (`sourcePath` set) always use the on-disk file, even if a
  * `model` field is present on the same object (e.g. `{ ...ev, model }`).
+ * Missing or non-string `model` still takes this path so callers get
+ * "model is required" instead of a misleading sourcePath error.
  */
 export function shouldWriteTempEval(
   evalOrOpts: RunOptions | EvalDocument,
@@ -141,7 +146,7 @@ export function shouldWriteTempEval(
   if (hasSourcePath(evalOrOpts)) {
     return false;
   }
-  return overrides === undefined && "model" in evalOrOpts && typeof evalOrOpts.model === "string";
+  return overrides === undefined;
 }
 
 function hasSourcePath(evalOrOpts: RunOptions | EvalDocument): boolean {
