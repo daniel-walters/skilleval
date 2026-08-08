@@ -28,8 +28,14 @@ export interface RunOptions {
   /** Agent runtime; default cursor. */
   runner?: "cursor" | "claude" | string;
   out?: string;
+  /** Override history directory (CLI default: .skilleval/history). */
   history?: string;
+  /** Skip retaining summary history. */
+  noHistory?: boolean;
+  /** Override baseline summary path (CLI default: prior latest.json when present). */
   baseline?: string;
+  /** Skip baseline comparison. */
+  noBaseline?: boolean;
 }
 
 /** Overrides when running a loaded eval. */
@@ -37,6 +43,12 @@ export interface RunOverrides {
   model: string;
   runner?: "cursor" | "claude" | string;
   out?: string;
+  /** Override history directory (CLI default: .skilleval/history). */
   history?: string;
+  /** Skip retaining summary history. */
+  noHistory?: boolean;
+  /** Override baseline summary path (CLI default: prior latest.json when present). */
   baseline?: string;
+  /** Skip baseline comparison. */
+  noBaseline?: boolean;
 }

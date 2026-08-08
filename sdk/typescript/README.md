@@ -55,6 +55,19 @@ expect(result).finalMessage.toMatch(/Refactor/);
 
 `run` returns `{ result, workspace, summary?, exitCode }`. A non-zero `exitCode` means the Go CLI failed YAML expects or a pass-rate gate after writing Result; Result is still returned so `expect()` can assert.
 
+By default the Go CLI retains history under `.skilleval/history` and compares to the prior run when one exists. Pass `noHistory` / `noBaseline` for ephemeral runs, or `history` / `baseline` path overrides (same semantics as the CLI flags):
+
+```ts
+await run({
+  name: "refactor-helper",
+  prompt: "...",
+  skill: "./skills/refactor-helper",
+  model: process.env.MODEL!,
+  noHistory: true,
+  noBaseline: true,
+});
+```
+
 Or load an existing eval YAML (keeps prompt/skill/input in YAML; assert in TypeScript):
 
 ```ts

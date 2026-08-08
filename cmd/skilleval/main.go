@@ -46,10 +46,17 @@ func main() {
 	}
 }
 
+const defaultHistoryDir = ".skilleval/history"
+
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `Usage:
-  skilleval run <eval.yaml> [--model ID] [--runner cursor|claude] [--out result.json] [--history DIR] [--baseline summary.json]
+  skilleval run <eval.yaml> [--model ID] [--runner cursor|claude] [--out result.json]
+                            [--history DIR] [--no-history] [--baseline summary.json] [--no-baseline]
   skilleval compare <current-summary.json> <baseline-summary.json>
+
+By default, run retains summaries under .skilleval/history and compares to
+that eval's latest.json when a prior run exists. Use --no-history / --no-baseline
+to opt out; --baseline PATH overrides the auto baseline (e.g. CI artifacts).
 
 Credentials:
   Cursor runner: CURSOR_API_KEY from the process environment, or a .env
@@ -72,10 +79,12 @@ func runCmd(args []string) error {
 	model := fs.String("model", "", "model id for the agent runner")
 	runnerName := fs.String("runner", "cursor", "agent runtime: cursor or claude")
 	out := fs.String("out", "result.json", "path to write Result JSON")
-	historyDir := fs.String("history", "", "directory to retain summary history")
+	historyDir := fs.String("history", defaultHistoryDir, "directory to retain summary history")
+	noHistory := fs.Bool("no-history", false, "skip retaining summary history")
 	baseline := fs.String("baseline", "", "path to a prior summary JSON to compare against")
+	noBaseline := fs.Bool("no-baseline", false, "skip baseline comparison")
 
-	flagArgs, positional, err := splitFlagsAndPositionals(args)
+	flagArgs, positional, err := splitFlagsAndPositionals(args, "no-history", "no-baseline")
 	if err != nil {
 		return err
 	}
@@ -115,20 +124,9 @@ func runCmd(args []string) error {
 		outPath = abs
 	}
 
-	opts := reportOpts{evalName: ev.Name}
-	if *historyDir != "" {
-		abs, err := filepath.Abs(*historyDir)
-		if err != nil {
-			return err
-		}
-		opts.historyDir = abs
-	}
-	if *baseline != "" {
-		abs, err := filepath.Abs(*baseline)
-		if err != nil {
-			return err
-		}
-		opts.baseline = abs
+	opts, err := resolveReportOpts(ev.Name, *historyDir, *noHistory, *baseline, *noBaseline)
+	if err != nil {
+		return err
 	}
 
 	runOpts := runner.Options{
@@ -139,6 +137,41 @@ func runCmd(args []string) error {
 		return runSingle(ev, evalPath, outPath, runOpts, opts)
 	}
 	return runMulti(ev, evalPath, outPath, runOpts, opts)
+}
+
+// resolveReportOpts applies default history retain and auto-baseline against
+// <historyDir>/<evalName>/latest.json when that file exists.
+func resolveReportOpts(evalName, historyDir string, noHistory bool, baseline string, noBaseline bool) (reportOpts, error) {
+	if noBaseline && baseline != "" {
+		return reportOpts{}, fmt.Errorf("run: --no-baseline conflicts with --baseline")
+	}
+	opts := reportOpts{evalName: evalName}
+	if !noHistory {
+		if historyDir == "" {
+			historyDir = defaultHistoryDir
+		}
+		abs, err := filepath.Abs(historyDir)
+		if err != nil {
+			return reportOpts{}, err
+		}
+		opts.historyDir = abs
+	}
+	if baseline != "" {
+		abs, err := filepath.Abs(baseline)
+		if err != nil {
+			return reportOpts{}, err
+		}
+		opts.baseline = abs
+		return opts, nil
+	}
+	if noBaseline || opts.historyDir == "" {
+		return opts, nil
+	}
+	latest := filepath.Join(opts.historyDir, evalName, "latest.json")
+	if st, err := os.Stat(latest); err == nil && !st.IsDir() {
+		opts.baseline = latest
+	}
+	return opts, nil
 }
 
 func runSingle(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, opts reportOpts) error {
@@ -364,7 +397,13 @@ func reportVerdict(w io.Writer, v checker.Verdict) error {
 
 // splitFlagsAndPositionals allows flags before or after the eval path.
 // The stdlib flag package stops at the first non-flag argument.
-func splitFlagsAndPositionals(args []string) (flagArgs, positional []string, err error) {
+// boolFlags are flag names (without leading dashes) that take no value, so a
+// following positional like eval.yaml is not consumed as the flag's argument.
+func splitFlagsAndPositionals(args []string, boolFlags ...string) (flagArgs, positional []string, err error) {
+	boolSet := make(map[string]struct{}, len(boolFlags))
+	for _, name := range boolFlags {
+		boolSet[name] = struct{}{}
+	}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
@@ -375,9 +414,16 @@ func splitFlagsAndPositionals(args []string) (flagArgs, positional []string, err
 			flagArgs = append(flagArgs, a)
 		case strings.HasPrefix(a, "-"):
 			flagArgs = append(flagArgs, a)
+			name, hasEq := parseFlagName(a)
+			if hasEq {
+				break
+			}
+			if _, isBool := boolSet[name]; isBool {
+				break
+			}
 			// Keep "--flag=value" as one token; otherwise take the next arg as value
 			// when this looks like a boolean-less long/short flag without '='.
-			if !strings.Contains(a, "=") && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 				i++
 				flagArgs = append(flagArgs, args[i])
 			}
@@ -386,4 +432,14 @@ func splitFlagsAndPositionals(args []string) (flagArgs, positional []string, err
 		}
 	}
 	return flagArgs, positional, nil
+}
+
+// parseFlagName returns the flag name without leading dashes and whether the
+// token already includes an "=value" assignment.
+func parseFlagName(a string) (name string, hasEq bool) {
+	a = strings.TrimLeft(a, "-")
+	if i := strings.IndexByte(a, '='); i >= 0 {
+		return a[:i], true
+	}
+	return a, false
 }

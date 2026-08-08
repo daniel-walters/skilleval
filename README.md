@@ -50,7 +50,7 @@ Minimum fields:
 | Field | Meaning |
 | --- | --- |
 | `schemaVersion` | `1` |
-| `name` | Eval id (also used under `--history`) |
+| `name` | Eval id (also used for default history paths) |
 | `prompt` | What the agent should do |
 | `skill` | Directory containing `SKILL.md` |
 | `input` | Optional fixture directory copied into the workspace |
@@ -257,20 +257,26 @@ Batch exit status is **not** fail-on-any-attempt. The process exits non-zero onl
 
 ### History and comparison
 
-Retain summaries across runs with `--history`:
+By default, `skilleval run` retains each summary under `.skilleval/history/<eval-name>/` (timestamped JSON plus `latest.json`) and prints an informational comparison against that eval's prior `latest.json` when one exists. First runs (no prior history) skip compare cleanly. `.skilleval/` is gitignored.
 
 ```bash
-skilleval run eval.yaml --model <ID> --history .skilleval/history
+skilleval run eval.yaml --model <ID>
 ```
 
-That archives each summary under `.skilleval/history/<eval-name>/<timestamp>.json` and updates `latest.json` in the same folder.
+Opt out for ephemeral one-shots:
 
-Compare the current run to a prior summary with `--baseline` (informational deltas only — does not change exit status):
+```bash
+skilleval run eval.yaml --model <ID> --no-history --no-baseline
+# retain but skip compare:
+skilleval run eval.yaml --model <ID> --no-baseline
+```
+
+Override the history directory or pass an explicit baseline (e.g. a CI artifact). Comparison deltas do not change exit status:
 
 ```bash
 skilleval run eval.yaml --model <ID> \
-  --history .skilleval/history \
-  --baseline .skilleval/history/refactor-helper/latest.json
+  --history /tmp/eval-history \
+  --baseline /tmp/prior-summary.json
 ```
 
 Or compare two summary files without re-running:
