@@ -15,8 +15,7 @@ Give it a skill, a prompt, and optional fixtures. It runs an agent with that ski
 | Single-eval CLI (`run` / `compare`) | Suite discovery / directory of evals |
 | Multi-run batches, history, baseline compare | Model matrix in one invocation |
 | Native project MCP seeding | Interactive OAuth MCP in CI |
-| YAML evals + TypeScript client | Bundled Go binary inside the npm package |
-| GitHub Release binaries + `go install` | Homebrew / apt |
+| YAML + TypeScript client (npm ships platform CLI); GitHub Release / `go install` | Homebrew / apt |
 
 Eval YAML and Result JSON use `schemaVersion: 1`. That number bumps only on a breaking contract change.
 
@@ -24,7 +23,25 @@ Eval YAML and Result JSON use `schemaVersion: 1`. That number bumps only on a br
 
 **Prerequisites:** Node.js at runtime (both runners embed a small Node helper). Go is only needed for `go install` or building from source.
 
-### CLI binary
+### TypeScript (recommended)
+
+```bash
+npm install @danielwaltersdev/skilleval
+```
+
+That installs the typed client and a platform `skilleval` binary (via optionalDependencies). Use it from `package.json` scripts or `npx`:
+
+```json
+{
+  "scripts": {
+    "eval": "skilleval run ./eval.yaml --model \"$MODEL\""
+  }
+}
+```
+
+Override with `SKILLEVAL_BIN` if needed. See [TypeScript](#typescript) below.
+
+### CLI binary only
 
 Download a prebuilt archive for your OS/arch from [GitHub Releases](https://github.com/daniel-walters/skilleval/releases), extract `skilleval`, and put it on your `PATH`.
 
@@ -37,14 +54,6 @@ go install github.com/daniel-walters/skilleval/cmd/skilleval@v0.1.0
 ```
 
 Replace `v0.1.0` with a [release tag](https://github.com/daniel-walters/skilleval/releases) (`@latest` also works). Confirm with `skilleval version` (local builds print `dev`; release builds print the tag version).
-
-### TypeScript package
-
-```bash
-npm install @danielwaltersdev/skilleval
-```
-
-Requires the Go `skilleval` CLI on `PATH` (or `SKILLEVAL_BIN`). See [TypeScript](#typescript) below.
 
 ## Credentials
 
@@ -132,9 +141,9 @@ Complete examples: [`examples/refactor-helper/eval.yaml`](examples/refactor-help
 
 ## TypeScript
 
-YAML remains the CLI authoring path. The npm package is the typed alternative: same Go CLI under the hood, same expect catalog, IntelliSense on matchers.
+YAML remains the CLI authoring path. The npm package is the typed alternative: same Go CLI under the hood (shipped for your platform), same expect catalog, IntelliSense on matchers.
 
-Requires Node.js 18+ and `skilleval` on `PATH` (or `SKILLEVAL_BIN`). Credentials are unchanged — see [Credentials](#credentials).
+Requires Node.js 18+. Credentials — see [Credentials](#credentials).
 
 ```ts
 import { run, expect } from "@danielwaltersdev/skilleval";
@@ -281,7 +290,7 @@ In CI, upload the current `*-summary.json` as an artifact; on the next job, down
 | --- | --- |
 | [docs/releasing.md](docs/releasing.md) | Cutting CLI + npm releases |
 | [docs/development.md](docs/development.md) | Building from source, CI, SDK pins, rate catalog sync |
-| [docs/adrs/](docs/adrs/) | Architecture decisions |
+| [docs/adrs/](docs/adrs/) | Architecture decisions (incl. npm platform binaries) |
 
 ## License
 

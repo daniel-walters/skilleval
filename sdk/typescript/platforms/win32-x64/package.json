@@ -1,0 +1,24 @@
+{
+  "name": "@danielwaltersdev/skilleval-win32-x64",
+  "version": "0.1.1",
+  "description": "skilleval Go CLI binary for win32-x64",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "bin",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daniel-walters/skilleval.git",
+    "directory": "sdk/typescript/platforms/win32-x64"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "packages": [
+    {
+      "npmSuffix": "darwin-arm64",
+      "goos": "darwin",
+      "goarch": "arm64",
+      "npmOs": "darwin",
+      "npmCpu": "arm64"
+    },
+    {
+      "npmSuffix": "darwin-x64",
+      "goos": "darwin",
+      "goarch": "amd64",
+      "npmOs": "darwin",
+      "npmCpu": "x64"
+    },
+    {
+      "npmSuffix": "linux-arm64",
+      "goos": "linux",
+      "goarch": "arm64",
+      "npmOs": "linux",
+      "npmCpu": "arm64"
+    },
+    {
+      "npmSuffix": "linux-x64",
+      "goos": "linux",
+      "goarch": "amd64",
+      "npmOs": "linux",
+      "npmCpu": "x64"
+    },
+    {
+      "npmSuffix": "win32-arm64",
+      "goos": "windows",
+      "goarch": "arm64",
+      "npmOs": "win32",
+      "npmCpu": "arm64"
+    },
+    {
+      "npmSuffix": "win32-x64",
+      "goos": "windows",
+      "goarch": "amd64",
+      "npmOs": "win32",
+      "npmCpu": "x64"
+    }
+  ]
+}
