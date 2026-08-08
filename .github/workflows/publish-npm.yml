@@ -1,18 +1,21 @@
-# Publish the TypeScript SDK to npm when a v* tag is pushed
-# (same tags as the GoReleaser GitHub Release workflow).
+# Publish the TypeScript SDK (+ platform CLI binaries) to npm when a v* tag
+# is pushed (same tags as the GoReleaser GitHub Release workflow).
 #
 # Auth: npm Trusted Publishing (OIDC). No NPM_TOKEN required for publish.
-# Configure on npmjs.com → @danielwaltersdev/skilleval → Settings → Trusted Publisher:
+# Configure a Trusted Publisher on each package (main + platforms):
 #   Organization or user: daniel-walters
 #   Repository:           skilleval
 #   Workflow filename:    publish-npm.yml
 #   Allowed actions:      npm publish
 #
+# Packages:
+#   @danielwaltersdev/skilleval
+#   @danielwaltersdev/skilleval-{darwin,linux,win32}-{arm64,x64}
+#
 # Requires npm CLI ≥ 11.5.1 (Node 24+). GitHub-hosted runners only.
 #
-# First-ever publish (package does not exist yet): publish once with
-# `npm login` locally from sdk/typescript at the release tag, then add the
-# trusted publisher above. Later tags publish via this workflow.
+# First-ever publish of a new package name: publish once with `npm login`
+# locally, then add the trusted publisher. Later tags publish via this workflow.
 #
 # Backfill an already-cut tag: Actions → Publish npm → Run workflow with
 # version (e.g. 0.1.1). Always checks out refs/tags/v<version>.
@@ -62,6 +65,10 @@ jobs:
         with:
           ref: ${{ steps.ver.outputs.tag }}
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - uses: actions/setup-node@v6
         with:
           # Node 24 ships npm ≥ 11.5.1 required for OIDC trusted publishing.
@@ -74,9 +81,16 @@ jobs:
       - name: Install and test
         run: |
           npm ci
-          npm version "${{ steps.ver.outputs.version }}" --no-git-tag-version --allow-same-version
           npm test
 
-      - name: Publish
+      - name: Build platform binaries
+        working-directory: sdk/typescript
+        run: node scripts/build-platform-binaries.mjs "${{ steps.ver.outputs.version }}"
+
+      - name: Sync versions
+        run: node scripts/sync-platform-versions.mjs "${{ steps.ver.outputs.version }}"
+
+      - name: Publish platforms then main
         # OIDC — do not set NODE_AUTH_TOKEN; npm uses trusted publishing.
-        run: npm publish --access public
+        # Platforms first so the main package's optionalDependencies resolve.
+        run: node scripts/publish-platforms-then-main.mjs
