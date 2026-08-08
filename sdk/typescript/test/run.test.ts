@@ -5,6 +5,7 @@ import type { EvalDocument, RunOptions } from "../src/evalTypes.js";
 import {
   appendReportFlags,
   parseWroteLines,
+  resolveEvalAndFlags,
   shouldWriteTempEval,
   summaryOutPath,
 } from "../src/run.js";
@@ -33,6 +34,18 @@ describe("shouldWriteTempEval", () => {
     assert.equal(shouldWriteTempEval(programmatic), true);
   });
 
+  it("still treats programmatic opts as temp when model is missing", () => {
+    const { model: _omit, ...noModel } = programmatic;
+    assert.equal(shouldWriteTempEval(noModel as RunOptions), true);
+  });
+
+  it("still treats programmatic opts as temp when model is not a string", () => {
+    assert.equal(
+      shouldWriteTempEval({ ...programmatic, model: undefined as unknown as string }),
+      true,
+    );
+  });
+
   it("uses on-disk file when sourcePath is set", () => {
     assert.equal(shouldWriteTempEval(loaded, { model: "composer-2" }), false);
   });
@@ -40,6 +53,33 @@ describe("shouldWriteTempEval", () => {
   it("does not rewrite when sourcePath is present even with a model field", () => {
     const merged = { ...loaded, model: "composer-2" };
     assert.equal(shouldWriteTempEval(merged), false);
+  });
+});
+
+describe("resolveEvalAndFlags", () => {
+  it("rejects missing model on programmatic run with a clear error", async () => {
+    await assert.rejects(
+      () =>
+        resolveEvalAndFlags({
+          name: "n",
+          prompt: "p",
+          skill: "./skill",
+        } as RunOptions),
+      /run: model is required/,
+    );
+  });
+
+  it("rejects non-string model on programmatic run", async () => {
+    await assert.rejects(
+      () =>
+        resolveEvalAndFlags({
+          name: "n",
+          prompt: "p",
+          skill: "./skill",
+          model: undefined as unknown as string,
+        }),
+      /run: model is required/,
+    );
   });
 });
 

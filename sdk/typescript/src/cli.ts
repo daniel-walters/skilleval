@@ -264,7 +264,7 @@ async function runScripts(
   if (flags.length > 0) {
     deps.stderr(
       "skilleval: TypeScript/JavaScript evals do not accept CLI flags " +
-        `(got ${flags.join(" ")}); set model in the script or via MODEL in the environment`,
+        `(got ${flags.join(" ")}); set model on run({ … }) in the script`,
     );
     return EXIT_USAGE;
   }
