@@ -29,6 +29,9 @@ go.work.sum
 .env
 .env.*
 
+# Local eval history / scratch
+.skilleval/
+
 # Node (Cursor agent helper)
 # package-lock.json under runner/cursoragent and runner/claudeagent is tracked for npm ci
 node_modules/
