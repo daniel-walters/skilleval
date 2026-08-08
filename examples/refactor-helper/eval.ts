@@ -6,7 +6,8 @@
  * or SKILLEVAL_BIN / PATH). CURSOR_API_KEY (or ANTHROPIC_API_KEY) via process
  * env or cwd `.env` (`run()` loads `.env`).
  *
- *   MODEL=composer-2.5 npx tsx eval.ts
+ *   MODEL=composer-2.5 skilleval run ./eval.ts
+ *   MODEL=composer-2.5 skilleval run
  */
 import { run, expect } from "@danielwaltersdev/skilleval";
 

@@ -8,7 +8,7 @@ export type {
   PassRateExpect,
   RunOptions,
   RunOverrides,
-} from "./eval.js";
+} from "./evalTypes.js";
 export type {
   Result,
   Summary,

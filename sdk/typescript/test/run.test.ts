@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { EvalDocument, RunOptions } from "../src/eval.js";
+import type { EvalDocument, RunOptions } from "../src/evalTypes.js";
 import {
   appendReportFlags,
   parseWroteLines,

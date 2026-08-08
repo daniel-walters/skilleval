@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { parse as parseYaml } from "yaml";
 
-import type { EvalDocument } from "./eval.js";
+import type { EvalDocument } from "./evalTypes.js";
 
 /**
  * Load an eval YAML from disk. Paths in the document stay relative to the

@@ -15,7 +15,9 @@ YAML remains valid CLI authoring; this package is the typed alternative. Root au
 npm install @danielwaltersdev/skilleval
 ```
 
-That pulls in a platform optionalDependency (`@danielwaltersdev/skilleval-<os>-<arch>`) with the Go binary and links `skilleval` on `node_modules/.bin`. `run()` and `package.json` scripts use it automatically:
+That pulls in a platform optionalDependency (`@danielwaltersdev/skilleval-<os>-<arch>`) with the Go binary and links `skilleval` on `node_modules/.bin`. `run()` and `package.json` scripts use it automatically.
+
+YAML:
 
 ```json
 {
@@ -25,7 +27,17 @@ That pulls in a platform optionalDependency (`@danielwaltersdev/skilleval-<os>-<
 }
 ```
 
-Resolution order: `SKILLEVAL_BIN` → packaged platform binary → `skilleval` on `PATH`.
+TypeScript-only (no `tsx` on the eval file) — discovers `eval.{ts,mts,js,mjs}` and `*.eval.{ts,mts,js,mjs}` under cwd (skips `node_modules`, hidden dirs, and `dist`-like build outputs), or pass `./eval.ts`:
+
+```json
+{
+  "scripts": {
+    "eval": "skilleval run"
+  }
+}
+```
+
+Put `model` on `run({ … })` or in `MODEL`. Script evals do not take Go CLI flags (`--model`, etc.). Resolution order for the Go binary: `SKILLEVAL_BIN` → packaged platform binary → `skilleval` on `PATH`.
 
 From a clone of this repo (development):
 
@@ -66,11 +78,11 @@ expect(result, workspace).file("src/gone.go").toHaveBeenDeleted();
 expect(result).finalMessage.toMatch(/Refactor/);
 ```
 
-Example run (from the example directory):
+Example run (from the example directory, with this package installed / linked):
 
 ```bash
 cd examples/refactor-helper
-MODEL=composer-2.5 npx tsx eval.ts
+MODEL=composer-2.5 skilleval run ./eval.ts
 ```
 
 `run` returns `{ result, workspace, summary?, exitCode }`. A non-zero `exitCode` means the Go CLI failed YAML expects or a pass-rate gate after writing Result; Result is still returned so `expect()` can assert.
