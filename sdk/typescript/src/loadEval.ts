@@ -61,5 +61,18 @@ export async function loadEval(evalPath: string): Promise<EvalDocument> {
   if (typeof o.attempts === "number" && o.attempts > 0) {
     ev.attempts = o.attempts;
   }
+  if (o.passRate !== undefined && o.passRate !== null) {
+    if (typeof o.passRate !== "object" || Array.isArray(o.passRate)) {
+      throw new Error(`loadEval: ${abs}: passRate must be a mapping with min`);
+    }
+    const pr = o.passRate as Record<string, unknown>;
+    if (typeof pr.min !== "number" || Number.isNaN(pr.min)) {
+      throw new Error(`loadEval: ${abs}: passRate.min is required`);
+    }
+    if (pr.min < 0 || pr.min > 1) {
+      throw new Error(`loadEval: ${abs}: passRate.min must be between 0 and 1`);
+    }
+    ev.passRate = { min: pr.min };
+  }
   return ev;
 }

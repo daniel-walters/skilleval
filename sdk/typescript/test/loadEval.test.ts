@@ -42,4 +42,35 @@ describe("loadEval", () => {
     fs.writeFileSync(p, "schemaVersion: 1\nprompt: hi\nskill: ./x\n");
     await assert.rejects(() => loadEval(p), /name is required/);
   });
+
+  it("loads attempts and passRate", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "skilleval-load-"));
+    const p = path.join(dir, "eval.yaml");
+    fs.writeFileSync(
+      p,
+      [
+        "schemaVersion: 1",
+        "name: multi",
+        "prompt: hi",
+        "skill: ./x",
+        "attempts: 4",
+        "passRate:",
+        "  min: 0.75",
+        "",
+      ].join("\n"),
+    );
+    const ev = await loadEval(p);
+    assert.equal(ev.attempts, 4);
+    assert.deepEqual(ev.passRate, { min: 0.75 });
+  });
+
+  it("rejects passRate.min out of range", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "skilleval-load-"));
+    const p = path.join(dir, "bad.yaml");
+    fs.writeFileSync(
+      p,
+      "schemaVersion: 1\nname: n\nprompt: hi\nskill: ./x\npassRate:\n  min: 1.5\n",
+    );
+    await assert.rejects(() => loadEval(p), /passRate\.min must be between 0 and 1/);
+  });
 });

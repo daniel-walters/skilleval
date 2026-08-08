@@ -8,11 +8,18 @@ export interface EvalDocument {
   input?: string;
   mcp?: string;
   attempts?: number;
+  /** Batch pass-rate gate (same shape as YAML passRate.min). */
+  passRate?: PassRateExpect;
   /**
    * Absolute path to the source YAML when loaded via loadEval.
    * When set, run uses this file instead of writing a temp eval.
    */
   sourcePath?: string;
+}
+
+/** Batch-level minimum pass rate across attempts (0–1). */
+export interface PassRateExpect {
+  min: number;
 }
 
 /** Options for programmatic run (writes a temp eval YAML without expects). */
@@ -23,6 +30,7 @@ export interface RunOptions {
   input?: string;
   mcp?: string;
   attempts?: number;
+  passRate?: PassRateExpect;
   /** Required model id for the agent runner. */
   model: string;
   /** Agent runtime; default cursor. */
@@ -36,6 +44,8 @@ export interface RunOptions {
   baseline?: string;
   /** Skip baseline comparison. */
   noBaseline?: boolean;
+  /** Per-attempt agent timeout (Go duration, e.g. "30m"); forwarded as --timeout. */
+  timeout?: string;
 }
 
 /** Overrides when running a loaded eval. */
@@ -51,4 +61,6 @@ export interface RunOverrides {
   baseline?: string;
   /** Skip baseline comparison. */
   noBaseline?: boolean;
+  /** Per-attempt agent timeout (Go duration, e.g. "30m"); forwarded as --timeout. */
+  timeout?: string;
 }

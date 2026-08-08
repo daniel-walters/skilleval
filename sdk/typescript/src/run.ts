@@ -28,6 +28,7 @@ type CliFlags = {
   noHistory?: boolean;
   baseline?: string;
   noBaseline?: boolean;
+  timeout?: string;
 };
 
 /**
@@ -79,6 +80,9 @@ async function resolveEvalAndFlags(
     if (opts.attempts !== undefined && opts.attempts > 0) {
       doc.attempts = opts.attempts;
     }
+    if (opts.passRate !== undefined) {
+      doc.passRate = opts.passRate;
+    }
     await fs.writeFile(evalPath, stringifyYaml(doc), "utf8");
     return {
       evalPath,
@@ -90,6 +94,7 @@ async function resolveEvalAndFlags(
         noHistory: opts.noHistory,
         baseline: opts.baseline,
         noBaseline: opts.noBaseline,
+        timeout: opts.timeout,
       },
       cleanup: tmpDir,
     };
@@ -113,6 +118,7 @@ async function resolveEvalAndFlags(
       noHistory: overrides?.noHistory ?? readBoolField(evalOrOpts, "noHistory"),
       baseline: overrides?.baseline ?? readStringField(evalOrOpts, "baseline"),
       noBaseline: overrides?.noBaseline ?? readBoolField(evalOrOpts, "noBaseline"),
+      timeout: overrides?.timeout ?? readStringField(evalOrOpts, "timeout"),
     },
   };
 }
@@ -189,6 +195,9 @@ async function invokeCli(evalPath: string, flags: CliFlags): Promise<RunResult> 
   const args = ["run", evalPath, "--model", flags.model, "--out", outPath];
   if (flags.runner) {
     args.push("--runner", flags.runner);
+  }
+  if (flags.timeout) {
+    args.push("--timeout", flags.timeout);
   }
   appendReportFlags(args, flags);
 

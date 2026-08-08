@@ -5,6 +5,7 @@ export { run } from "./run.js";
 export type { RunResult } from "./run.js";
 export type {
   EvalDocument,
+  PassRateExpect,
   RunOptions,
   RunOverrides,
 } from "./eval.js";

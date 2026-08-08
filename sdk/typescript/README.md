@@ -55,6 +55,8 @@ expect(result).finalMessage.toMatch(/Refactor/);
 
 `run` returns `{ result, workspace, summary?, exitCode }`. A non-zero `exitCode` means the Go CLI failed YAML expects or a pass-rate gate after writing Result; Result is still returned so `expect()` can assert.
 
+Programmatic multi-run uses the same YAML fields as the CLI. Pass `attempts` and optional `passRate: { min }` (0–1) on `run({ … })`; `loadEval` preserves them on the typed document (the on-disk YAML still drives the CLI when using `sourcePath`).
+
 By default the Go CLI retains history under `.skilleval/history` and compares to the prior run when one exists. Pass `noHistory` / `noBaseline` for ephemeral runs, or `history` / `baseline` path overrides (same semantics as the CLI flags):
 
 ```ts
