@@ -57,7 +57,7 @@ Replace `v0.1.0` with a [release tag](https://github.com/daniel-walters/skilleva
 
 ## Credentials
 
-Live runs need credentials in the environment. The **CLI** also loads a `.env` from the current working directory (process env wins over `.env`). TypeScript `run()` does **not** load `.env` — export vars in the shell, use a runner that loads `.env` (e.g. `tsx --env-file=.env`), or rely on CI secrets.
+Live runs need credentials in the environment. Both the **CLI** and TypeScript `run()` load a `.env` from the current working directory (process env wins over `.env`).
 
 - **Cursor** (`--runner cursor`, default): `CURSOR_API_KEY`
 - **Claude** (`--runner claude`): `ANTHROPIC_API_KEY` for CI / headless runs, or an existing `claude login` / Max subscription session locally
@@ -144,7 +144,7 @@ Complete examples: [`examples/refactor-helper/eval.yaml`](examples/refactor-help
 
 YAML remains the CLI authoring path. The npm package is the typed alternative: same Go CLI under the hood (shipped for your platform), same expect catalog, IntelliSense on matchers.
 
-Requires Node.js 18+. Credentials — see [Credentials](#credentials) (export `MODEL` / keys into the process; `run()` does not load `.env`).
+Requires Node.js 18+. Credentials — see [Credentials](#credentials) (`run()` loads cwd `.env` the same as the CLI).
 
 ```ts
 import { run, expect } from "@danielwaltersdev/skilleval";

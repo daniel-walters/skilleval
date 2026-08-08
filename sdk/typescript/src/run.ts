@@ -6,6 +6,7 @@ import path from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 
 import { missingBinaryHint, resolveSkillevalBinary } from "./binary.js";
+import { loadDotEnv } from "./envfile.js";
 import type { EvalDocument, RunOptions, RunOverrides } from "./eval.js";
 import type { Result, Summary } from "./result.js";
 
@@ -38,6 +39,9 @@ type CliFlags = {
  * - `run({ name, prompt, skill, model, ... })` writes a temp eval YAML (no expects).
  * - `run(await loadEval(path), { model })` uses the loaded YAML file as-is.
  * - Objects with `sourcePath` (from `loadEval`) always use that file — never a temp rewrite.
+ *
+ * Loads cwd `.env` before spawning (missing file is fine; process env wins),
+ * matching the Go CLI.
  */
 export async function run(opts: RunOptions): Promise<RunResult>;
 export async function run(ev: EvalDocument, opts: RunOverrides): Promise<RunResult>;
@@ -45,6 +49,7 @@ export async function run(
   evalOrOpts: RunOptions | EvalDocument,
   overrides?: RunOverrides,
 ): Promise<RunResult> {
+  loadDotEnv();
   const { evalPath, flags, cleanup } = await resolveEvalAndFlags(evalOrOpts, overrides);
   try {
     return await invokeCli(evalPath, flags);
