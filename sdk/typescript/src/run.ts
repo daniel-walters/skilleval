@@ -276,14 +276,20 @@ function spawnCapture(
       env.FORCE_COLOR = "1";
     }
     const child = spawn(bin, args, {
-      // Capture stdout for "wrote …" parsing; inherit stderr for live progress.
-      stdio: ["ignore", "pipe", "inherit"],
+      // Pipe both streams so we can tee live output and still capture stderr
+      // for "no Result" error messages (inherit would leave stderr empty).
+      stdio: ["ignore", "pipe", "pipe"],
       env,
     });
     let stdout = "";
+    let stderr = "";
     child.stdout.on("data", (chunk: Buffer) => {
       stdout += chunk.toString("utf8");
       process.stdout.write(chunk);
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+      process.stderr.write(chunk);
     });
     child.on("error", (err) => {
       reject(
@@ -291,8 +297,7 @@ function spawnCapture(
       );
     });
     child.on("close", (code) => {
-      // stderr is inherited (not captured); error detail falls back to stdout/exit.
-      resolve({ stdout, stderr: "", code });
+      resolve({ stdout, stderr, code });
     });
   });
 }
