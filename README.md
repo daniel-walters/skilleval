@@ -6,6 +6,19 @@ Run a skill against a prompt and fixtures, capture what happened, and check dete
 
 Core is Go. TypeScript authors can use the in-repo client at [`sdk/typescript`](sdk/typescript) (`run` + typed `expect`) over the same CLI and expect catalog.
 
+### Supported in v0.1
+
+| In scope | Not yet |
+| --- | --- |
+| Cursor and Claude runners | Other agent runtimes (Codex, Gemini, …) |
+| Single-eval CLI (`run` / `compare`) | Suite discovery / directory of evals |
+| Multi-run batches, history, baseline compare | Model matrix in one invocation |
+| Native project MCP seeding | Interactive OAuth MCP in CI |
+| YAML evals + in-repo TypeScript client | Published npm package |
+| GitHub Release binaries + `go install` | Homebrew / apt |
+
+**Versioning:** CLI releases use semver tags (`v0.1.0`, …). Eval YAML and Result JSON stay on `schemaVersion: 1` until a breaking contract change; that bumps the schema number rather than silently changing meaning. Patch releases (`v0.1.x`) are for install, docs, and correctness fixes — not new product surface.
+
 ## Install
 
 Prerequisites:
