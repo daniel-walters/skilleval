@@ -51,7 +51,7 @@ The workflow already has `id-token: write`, Node 24, and no `NODE_AUTH_TOKEN`. N
 
 **First-ever package name:** trusted publishing cannot create a brand-new package. For each new name, publish once locally (`npm login` + `npm publish --access public` from that package directory with a real binary in `bin/`), then add the trusted publisher above. Later tags use CI.
 
-The GitHub repo is private, so npm will not attach provenance attestations even when OIDC publish succeeds.
+The repo is public. npm provenance attestations should attach on Trusted Publisher publishes when OIDC succeeds.
 
 ### First platform-binary release (local seed)
 
