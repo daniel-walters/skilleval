@@ -84,6 +84,7 @@ func (a *CursorAgent) Run(ctx context.Context, req AgentRequest) (AgentObservabl
 	)
 	cmd.Dir = helperDir
 	cmd.Env = os.Environ()
+	configureAgentCmd(cmd)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

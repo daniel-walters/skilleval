@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/daniel-walters/skilleval/checker"
 	"github.com/daniel-walters/skilleval/eval"
@@ -56,13 +57,15 @@ const defaultHistoryDir = ".skilleval/history"
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `Usage:
   skilleval run <eval.yaml> [--model ID] [--runner cursor|claude] [--out result.json]
-                            [--history DIR] [--no-history] [--baseline summary.json] [--no-baseline]
+                            [--timeout DURATION] [--history DIR] [--no-history]
+                            [--baseline summary.json] [--no-baseline]
   skilleval compare <current-summary.json> <baseline-summary.json>
   skilleval version
 
 By default, run retains summaries under .skilleval/history and compares to
 that eval's latest.json when a prior run exists. Use --no-history / --no-baseline
 to opt out; --baseline PATH overrides the auto baseline (e.g. CI artifacts).
+--timeout bounds each attempt (Go duration, e.g. 30m); omit for no limit.
 
 Credentials:
   Cursor runner: CURSOR_API_KEY from the process environment, or a .env
@@ -89,6 +92,7 @@ func runCmd(args []string) error {
 	noHistory := fs.Bool("no-history", false, "skip retaining summary history")
 	baseline := fs.String("baseline", "", "path to a prior summary JSON to compare against")
 	noBaseline := fs.Bool("no-baseline", false, "skip baseline comparison")
+	timeout := fs.Duration("timeout", 0, "per-attempt agent timeout (0 = no limit)")
 
 	flagArgs, positional, err := splitFlagsAndPositionals(args, "no-history", "no-baseline")
 	if err != nil {
@@ -116,6 +120,9 @@ func runCmd(args []string) error {
 	if *model == "" {
 		return fmt.Errorf("run: --model is required")
 	}
+	if *timeout < 0 {
+		return fmt.Errorf("run: --timeout must be >= 0")
+	}
 	agent, err := runner.LookupAgent(*runnerName)
 	if err != nil {
 		return fmt.Errorf("run: %w", err)
@@ -140,9 +147,9 @@ func runCmd(args []string) error {
 		Agent: agent,
 	}
 	if ev.Attempts <= 1 {
-		return runSingle(ev, evalPath, outPath, runOpts, opts)
+		return runSingle(ev, evalPath, outPath, runOpts, opts, *timeout)
 	}
-	return runMulti(ev, evalPath, outPath, runOpts, opts)
+	return runMulti(ev, evalPath, outPath, runOpts, opts, *timeout)
 }
 
 // resolveReportOpts applies default history retain and auto-baseline against
@@ -180,12 +187,14 @@ func resolveReportOpts(evalName, historyDir string, noHistory bool, baseline str
 	return opts, nil
 }
 
-func runSingle(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, opts reportOpts) error {
+func runSingle(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, opts reportOpts, timeout time.Duration) error {
 	hb := startHeartbeat(os.Stderr, stderrIsTerminal())
 	defer hb.Stop()
 
 	runOpts.Attempt = 1
-	r, workspace, err := runner.Run(context.Background(), ev, evalPath, runOpts)
+	ctx, cancel := attemptContext(timeout)
+	defer cancel()
+	r, workspace, err := runner.Run(ctx, ev, evalPath, runOpts)
 	if err != nil {
 		return err
 	}
@@ -209,7 +218,7 @@ func runSingle(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, 
 	return nil
 }
 
-func runMulti(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, opts reportOpts) error {
+func runMulti(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, opts reportOpts, timeout time.Duration) error {
 	n := ev.Attempts
 	attempts := make([]summary.Attempt, 0, n)
 
@@ -218,7 +227,9 @@ func runMulti(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, o
 		attemptOpts := runOpts
 		attemptOpts.Attempt = i
 		attemptOpts.TotalAttempts = n
-		r, workspace, err := runner.Run(context.Background(), ev, evalPath, attemptOpts)
+		ctx, cancel := attemptContext(timeout)
+		r, workspace, err := runner.Run(ctx, ev, evalPath, attemptOpts)
+		cancel()
 		hb.Stop()
 		if err != nil {
 			fmt.Printf("attempt %d/%d: error: %v\n", i, n, err)
@@ -247,6 +258,14 @@ func runMulti(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, o
 		return fmt.Errorf("pass rate %g below min %g", rep.PassRate, *ev.PassRate.Min)
 	}
 	return nil
+}
+
+// attemptContext returns a per-attempt context. timeout <= 0 means no deadline.
+func attemptContext(timeout time.Duration) (context.Context, context.CancelFunc) {
+	if timeout <= 0 {
+		return context.WithCancel(context.Background())
+	}
+	return context.WithTimeout(context.Background(), timeout)
 }
 
 // emitReport writes the summary beside --out, optionally retains history, and

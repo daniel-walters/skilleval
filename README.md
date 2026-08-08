@@ -241,6 +241,8 @@ skilleval run examples/mcp-ping/eval.yaml --model <ID>
 
 Use `--runner claude` for the Claude agent. The eval YAML stays runner-agnostic for skill/input/mcp seeding; MCP `toolsUsed` expects may still need runner-specific names (see above). The Result records which runner produced the attempt.
 
+Optional `--timeout` bounds each attempt (Go duration, e.g. `30m` or `5m`). When omitted, attempts run without a deadline. On timeout the harness cancels the agent helper and exits with an error (no Result written for that attempt).
+
 When the harness omits `costUSD`, skilleval estimates it from a **per-provider** rate table (`cost/rates.json`): Cursor uses the `cursor` catalog; Claude prefers the SDK’s `total_cost_usd` and does not fall back to Cursor rates (the `anthropic` catalog is reserved for later and may be empty).
 
 After the run, expects are checked against the Result (and attempt workspace when needed). The CLI prints `PASS` or `FAIL` and exits non-zero when the check fails.

@@ -85,6 +85,7 @@ func (a *ClaudeAgent) Run(ctx context.Context, req AgentRequest) (AgentObservabl
 	cmd := exec.CommandContext(ctx, node, args...)
 	cmd.Dir = helperDir
 	cmd.Env = os.Environ()
+	configureAgentCmd(cmd)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
