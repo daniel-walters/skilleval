@@ -269,17 +269,21 @@ function spawnCapture(
   args: string[],
 ): Promise<{ stdout: string; stderr: string; code: number | null }> {
   return new Promise((resolve, reject) => {
+    const env = { ...process.env };
+    // Child stdout is a pipe (not a TTY); force color when the parent terminal
+    // would show it so PASS/FAIL and baseline deltas stay colored when teed.
+    if (process.stdout.isTTY && !process.env.NO_COLOR) {
+      env.FORCE_COLOR = "1";
+    }
     const child = spawn(bin, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      env: process.env,
+      // Capture stdout for "wrote …" parsing; inherit stderr for live progress.
+      stdio: ["ignore", "pipe", "inherit"],
+      env,
     });
     let stdout = "";
-    let stderr = "";
     child.stdout.on("data", (chunk: Buffer) => {
       stdout += chunk.toString("utf8");
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
+      process.stdout.write(chunk);
     });
     child.on("error", (err) => {
       reject(
@@ -287,7 +291,8 @@ function spawnCapture(
       );
     });
     child.on("close", (code) => {
-      resolve({ stdout, stderr, code });
+      // stderr is inherited (not captured); error detail falls back to stdout/exit.
+      resolve({ stdout, stderr: "", code });
     });
   });
 }

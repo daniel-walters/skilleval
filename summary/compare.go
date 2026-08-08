@@ -3,6 +3,8 @@ package summary
 import (
 	"fmt"
 	"io"
+
+	"github.com/daniel-walters/skilleval/internal/termcolor"
 )
 
 // MetricDelta is one numeric field compared across two Reports.
@@ -51,37 +53,50 @@ func metricDelta(current, baseline *float64) MetricDelta {
 func ptr(v float64) *float64 { return &v }
 
 // FormatDiff writes a short human-readable comparison block to w.
+// When colors are enabled for w, metric lines use green for improvements and
+// red for regressions (higher passRate; lower cost/turns/duration).
 func FormatDiff(w io.Writer, d Diff) error {
 	if _, err := fmt.Fprintln(w, "vs baseline:"); err != nil {
 		return err
 	}
-	if err := formatMetric(w, "passRate", d.PassRate); err != nil {
+	if err := formatMetric(w, "passRate", d.PassRate, true); err != nil {
 		return err
 	}
-	if err := formatMetric(w, "avgCostUSD", d.AvgCostUSD); err != nil {
+	if err := formatMetric(w, "avgCostUSD", d.AvgCostUSD, false); err != nil {
 		return err
 	}
-	if err := formatMetric(w, "avgTurns", d.AvgTurns); err != nil {
+	if err := formatMetric(w, "avgTurns", d.AvgTurns, false); err != nil {
 		return err
 	}
-	return formatMetric(w, "avgDurationMs", d.AvgDurationMs)
+	return formatMetric(w, "avgDurationMs", d.AvgDurationMs, false)
 }
 
-func formatMetric(w io.Writer, name string, m MetricDelta) error {
+// formatMetric writes one metric line. higherIsBetter controls polarity for color:
+// passRate improves when Abs > 0; cost/turns/duration improve when Abs < 0.
+// Zero deltas and missing-side lines stay uncolored.
+func formatMetric(w io.Writer, name string, m MetricDelta, higherIsBetter bool) error {
 	if m.Baseline == nil && m.Current == nil {
 		return nil
 	}
 	left := formatOptional(m.Baseline)
 	right := formatOptional(m.Current)
+	var body string
 	if m.Abs == nil {
-		_, err := fmt.Fprintf(w, "  %s: %s → %s\n", name, left, right)
-		return err
+		body = fmt.Sprintf("  %s: %s → %s", name, left, right)
+	} else if m.Rel != nil {
+		body = fmt.Sprintf("  %s: %s → %s (%+g / %+.1f%%)", name, left, right, *m.Abs, *m.Rel*100)
+	} else {
+		body = fmt.Sprintf("  %s: %s → %s (%+g)", name, left, right, *m.Abs)
 	}
-	if m.Rel != nil {
-		_, err := fmt.Fprintf(w, "  %s: %s → %s (%+g / %+.1f%%)\n", name, left, right, *m.Abs, *m.Rel*100)
-		return err
+	if m.Abs != nil && *m.Abs != 0 && termcolor.Enabled(w) {
+		improved := (*m.Abs > 0) == higherIsBetter
+		if improved {
+			body = termcolor.Green + body + termcolor.Reset
+		} else {
+			body = termcolor.Red + body + termcolor.Reset
+		}
 	}
-	_, err := fmt.Fprintf(w, "  %s: %s → %s (%+g)\n", name, left, right, *m.Abs)
+	_, err := fmt.Fprintln(w, body)
 	return err
 }
 

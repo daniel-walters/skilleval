@@ -2,11 +2,13 @@ package summary_test
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/daniel-walters/skilleval/internal/termcolor"
 	"github.com/daniel-walters/skilleval/summary"
 )
 
@@ -131,5 +133,70 @@ func TestFormatDiffAbsentMetric(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "— → 1") {
 		t.Fatalf("want absent→present, got %q", buf.String())
+	}
+}
+
+func TestFormatDiffColors(t *testing.T) {
+	t.Setenv("FORCE_COLOR", "1")
+	t.Setenv("NO_COLOR", "")
+
+	// Higher passRate + lower cost = improvements (green).
+	// Lower passRate + higher cost = regressions (red).
+	improve := summary.Compare(
+		summary.Report{PassRate: 1.0, AvgCostUSD: ptr(0.5)},
+		summary.Report{PassRate: 0.5, AvgCostUSD: ptr(1.0)},
+	)
+	regress := summary.Compare(
+		summary.Report{PassRate: 0.5, AvgCostUSD: ptr(2.0)},
+		summary.Report{PassRate: 1.0, AvgCostUSD: ptr(1.0)},
+	)
+
+	readDiff := func(t *testing.T, d summary.Diff) string {
+		t.Helper()
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := summary.FormatDiff(w, d); err != nil {
+			_ = w.Close()
+			_ = r.Close()
+			t.Fatal(err)
+		}
+		_ = w.Close()
+		out, err := io.ReadAll(r)
+		_ = r.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(out)
+	}
+
+	gotImprove := readDiff(t, improve)
+	if !strings.Contains(gotImprove, "vs baseline:") {
+		t.Fatalf("missing header: %q", gotImprove)
+	}
+	if !strings.Contains(gotImprove, termcolor.Green) {
+		t.Fatalf("want green improvements: %q", gotImprove)
+	}
+	if strings.Contains(gotImprove, termcolor.Red) {
+		t.Fatalf("unexpected red in improvements: %q", gotImprove)
+	}
+
+	gotRegress := readDiff(t, regress)
+	if !strings.Contains(gotRegress, termcolor.Red) {
+		t.Fatalf("want red regressions: %q", gotRegress)
+	}
+	if strings.Contains(gotRegress, termcolor.Green) {
+		t.Fatalf("unexpected green in regressions: %q", gotRegress)
+	}
+
+	// Zero delta stays uncolored.
+	zero := summary.Compare(
+		summary.Report{PassRate: 1},
+		summary.Report{PassRate: 1},
+	)
+	gotZero := readDiff(t, zero)
+	if strings.Contains(gotZero, termcolor.Green) || strings.Contains(gotZero, termcolor.Red) {
+		t.Fatalf("zero delta should be plain: %q", gotZero)
 	}
 }

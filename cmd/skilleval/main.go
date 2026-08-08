@@ -13,6 +13,7 @@ import (
 	"github.com/daniel-walters/skilleval/checker"
 	"github.com/daniel-walters/skilleval/eval"
 	"github.com/daniel-walters/skilleval/history"
+	"github.com/daniel-walters/skilleval/internal/termcolor"
 	"github.com/daniel-walters/skilleval/result"
 	"github.com/daniel-walters/skilleval/runner"
 	"github.com/daniel-walters/skilleval/summary"
@@ -393,16 +394,18 @@ func printSummary(w io.Writer, rep summary.Report) error {
 }
 
 // printVerdict prints PASS/FAIL (and failure lines) without affecting exit status.
+// PASS is green and FAIL (plus failure details) are red when colors are enabled for w.
 func printVerdict(w io.Writer, v checker.Verdict) error {
 	if v.Passed {
-		_, err := fmt.Fprintln(w, "PASS")
+		_, err := fmt.Fprintln(w, termcolor.Wrap(w, termcolor.Green, "PASS"))
 		return err
 	}
-	if _, err := fmt.Fprintln(w, "FAIL"); err != nil {
+	if _, err := fmt.Fprintln(w, termcolor.Wrap(w, termcolor.Red, "FAIL")); err != nil {
 		return err
 	}
 	for _, f := range v.Failures {
-		if _, err := fmt.Fprintf(w, "  %s: %s\n", f.Path, f.Reason); err != nil {
+		line := fmt.Sprintf("  %s: %s", f.Path, f.Reason)
+		if _, err := fmt.Fprintln(w, termcolor.Wrap(w, termcolor.Red, line)); err != nil {
 			return err
 		}
 	}
