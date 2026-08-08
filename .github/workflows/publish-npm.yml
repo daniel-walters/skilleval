@@ -5,7 +5,9 @@
 # with publish rights for the `skilleval` package).
 #
 # First publish of an already-cut tag: Actions → Publish npm → Run workflow
-# with the version (e.g. 0.1.0), after NPM_TOKEN is set.
+# with the version (e.g. 0.1.0), after NPM_TOKEN is set. The job always
+# checks out refs/tags/v<version> (not the branch selected for the workflow
+# file), so npm content matches the GitHub Release for that tag.
 
 name: Publish npm
 
@@ -16,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "npm package version to publish (no leading v)"
+        description: "npm package version to publish (no leading v); must match an existing v* tag"
         required: true
         type: string
 
@@ -30,18 +32,8 @@ jobs:
       run:
         working-directory: sdk/typescript
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "20"
-          registry-url: https://registry.npmjs.org
-          cache: npm
-          cache-dependency-path: sdk/typescript/package-lock.json
-
       - name: Resolve version
         id: ver
-        working-directory: .
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ inputs.version }}"
@@ -53,6 +45,18 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.ver.outputs.tag }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: sdk/typescript/package-lock.json
 
       - name: Install and test
         run: |
