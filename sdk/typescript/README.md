@@ -1,14 +1,14 @@
 # skilleval (TypeScript)
 
-In-repo TypeScript client for [skilleval](../../README.md#typescript). Runs evals through the Go `skilleval` CLI and asserts with typed `expect` matchers that mirror the shared YAML catalog.
+In-repo TypeScript client for [skilleval](https://github.com/daniel-walters/skilleval/blob/main/README.md#typescript). Runs evals through the Go `skilleval` CLI and asserts with typed `expect` matchers that mirror the shared YAML catalog.
 
-YAML remains valid CLI authoring; this package is the typed alternative. Root authoring docs (install → `run` → `expect`) live in the [README TypeScript section](../../README.md#typescript). Full worked example: [`examples/refactor-helper/eval.ts`](../../examples/refactor-helper/eval.ts).
+YAML remains valid CLI authoring; this package is the typed alternative. Root authoring docs (install → `run` → `expect`) live in the [README TypeScript section](https://github.com/daniel-walters/skilleval/blob/main/README.md#typescript). Full worked example: [`examples/refactor-helper/eval.ts`](https://github.com/daniel-walters/skilleval/blob/main/examples/refactor-helper/eval.ts).
 
 ## Prerequisites
 
 - Node.js 18+
 - `skilleval` binary on `PATH`, or set `SKILLEVAL_BIN` to the binary path
-- Runner credentials unchanged from the Go CLI (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`)
+- Runner credentials (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`) and `MODEL` in the **process** environment — TypeScript `run()` does not load `.env` (the Go CLI does when invoked directly)
 
 ## Install
 
@@ -55,11 +55,18 @@ expect(result, workspace).file("src/gone.go").toHaveBeenDeleted();
 expect(result).finalMessage.toMatch(/Refactor/);
 ```
 
+Example run (from the example directory):
+
+```bash
+cd examples/refactor-helper
+MODEL=composer-2.5 npx tsx eval.ts
+```
+
 `run` returns `{ result, workspace, summary?, exitCode }`. A non-zero `exitCode` means the Go CLI failed YAML expects or a pass-rate gate after writing Result; Result is still returned so `expect()` can assert.
 
 Programmatic multi-run uses the same YAML fields as the CLI. Pass `attempts` and optional `passRate: { min }` (0–1) on `run({ … })`; `loadEval` preserves them on the typed document (the on-disk YAML still drives the CLI when using `sourcePath`).
 
-By default the Go CLI retains history under `.skilleval/history` and compares to the prior run when one exists. Pass `noHistory` / `noBaseline` for ephemeral runs, or `history` / `baseline` path overrides (same semantics as the CLI flags). Pass `timeout` (Go duration string, e.g. `"30m"`) to forward `--timeout` to the CLI.
+By default the Go CLI retains history under `.skilleval/history` and compares to the prior run when one exists. Baseline compare still runs on the Go side (history on disk / returned `summary`), but compare/`PASS` text is not forwarded to Node process stdout — use the CLI for visible diffs or inspect history/`summary`. Pass `noHistory` / `noBaseline` for ephemeral runs, or `history` / `baseline` path overrides (same semantics as the CLI flags). Pass `timeout` (Go duration string, e.g. `"30m"`) to forward `--timeout` to the CLI.
 
 ```ts
 await run({
@@ -89,6 +96,8 @@ const { result, workspace } = await run(ev, { model: process.env.MODEL! });
 | `skills.activated` | `toInclude(...strings)`, `.not.toInclude(...strings)` |
 | `file(path)` | `toHaveStatus`, `toHaveBeenCreated` / `Modified` / `Deleted`, `toContain`, `toEqual` (pass `workspace` for content) |
 | `finalMessage` | `toContain(string)`, `toMatch(RegExp)`, `toEqual(string \| RegExp)` |
+
+Nil `costUSD` (unknown/unpriced model, or harness omit without a catalog hit) fails any cost bound — same as YAML expects.
 
 Non-`finished` results fail as `run.status` before other checks. Matchers throw `ExpectError` with checker-style `path` + `reason`.
 
