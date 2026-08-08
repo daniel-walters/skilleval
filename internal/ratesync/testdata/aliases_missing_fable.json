@@ -1,0 +1,6 @@
+{
+  "Auto Cost": ["auto", "auto-smart"],
+  "Composer 2.5": ["composer-2.5"],
+  "Claude 4.5 Sonnet": ["claude-4.5-sonnet"],
+  "Grok 4.5": ["grok-4.5"]
+}
