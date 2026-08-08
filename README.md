@@ -14,7 +14,7 @@ Core is Go. TypeScript authors can use the in-repo client at [`sdk/typescript`](
 | Single-eval CLI (`run` / `compare`) | Suite discovery / directory of evals |
 | Multi-run batches, history, baseline compare | Model matrix in one invocation |
 | Native project MCP seeding | Interactive OAuth MCP in CI |
-| YAML evals + TypeScript client (`npm install skilleval`) | Bundled Go binary inside the npm package |
+| YAML evals + TypeScript client (`npm install @danielwaltersdev/skilleval`) | Bundled Go binary inside the npm package |
 | GitHub Release binaries + `go install` | Homebrew / apt |
 
 **Versioning:** CLI releases use semver tags (`v0.1.0`, …). Eval YAML and Result JSON stay on `schemaVersion: 1` until a breaking contract change; that bumps the schema number rather than silently changing meaning. Patch releases (`v0.1.x`) are for install, docs, and correctness fixes — not new product surface.
@@ -59,7 +59,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-That runs the [Release](.github/workflows/release.yml) workflow (GoReleaser), which publishes multi-platform archives and checksums to GitHub Releases, and the [Publish npm](.github/workflows/publish-npm.yml) workflow, which publishes `sdk/typescript` as [`skilleval` on npm](https://www.npmjs.com/package/skilleval) via [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC — no long-lived `NPM_TOKEN`).
+That runs the [Release](.github/workflows/release.yml) workflow (GoReleaser), which publishes multi-platform archives and checksums to GitHub Releases, and the [Publish npm](.github/workflows/publish-npm.yml) workflow, which publishes `sdk/typescript` as [`@danielwaltersdev/skilleval`](https://www.npmjs.com/package/@danielwaltersdev/skilleval) via [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC — no long-lived `NPM_TOKEN`).
 
 ## Authoring an eval
 
@@ -125,7 +125,7 @@ Prerequisites beyond Install above:
 - `skilleval` on `PATH`, or `SKILLEVAL_BIN` pointing at the binary
 
 ```bash
-npm install skilleval
+npm install @danielwaltersdev/skilleval
 ```
 
 Requires the Go `skilleval` CLI on `PATH` (or `SKILLEVAL_BIN`). Credentials are unchanged — see [Credentials](#credentials) (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`).
@@ -133,7 +133,7 @@ Requires the Go `skilleval` CLI on `PATH` (or `SKILLEVAL_BIN`). Credentials are 
 Minimal `run` + `expect` equivalent to the refactor-helper YAML:
 
 ```ts
-import { run, expect } from "skilleval";
+import { run, expect } from "@danielwaltersdev/skilleval";
 
 const { result, workspace } = await run({
   name: "refactor-helper",
@@ -164,7 +164,7 @@ Full worked example: [`examples/refactor-helper/eval.ts`](examples/refactor-help
 You can also keep YAML for the prompt/skill/input and assert in TypeScript:
 
 ```ts
-import { loadEval, run, expect } from "skilleval";
+import { loadEval, run, expect } from "@danielwaltersdev/skilleval";
 
 const ev = await loadEval("./eval.yaml");
 const { result, workspace } = await run(ev, { model: process.env.MODEL! });

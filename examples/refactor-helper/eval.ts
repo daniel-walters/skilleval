@@ -5,7 +5,7 @@
  * Prerequisites: skilleval on PATH (or SKILLEVAL_BIN), Node 18+,
  * and a local install of sdk/typescript. Credentials unchanged from the CLI.
  */
-import { run, expect } from "skilleval";
+import { run, expect } from "@danielwaltersdev/skilleval";
 
 const { result, workspace } = await run({
   name: "refactor-helper",

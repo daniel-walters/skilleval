@@ -2,7 +2,7 @@
 # (same tags as the GoReleaser GitHub Release workflow).
 #
 # Auth: npm Trusted Publishing (OIDC). No NPM_TOKEN required for publish.
-# Configure on npmjs.com → package skilleval → Settings → Trusted Publisher:
+# Configure on npmjs.com → @danielwaltersdev/skilleval → Settings → Trusted Publisher:
 #   Organization or user: daniel-walters
 #   Repository:           skilleval
 #   Workflow filename:    publish-npm.yml
