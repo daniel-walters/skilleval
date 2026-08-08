@@ -66,8 +66,9 @@ jobs:
         with:
           # Node 24 ships npm ≥ 11.5.1 required for OIDC trusted publishing.
           node-version: "24"
-          registry-url: https://registry.npmjs.org
-          # Never cache package manager state for release publishes.
+          # Do not set registry-url: setup-node would write an empty
+          # //registry.npmjs.org/:_authToken line that makes npm skip OIDC
+          # and fail with ENEEDAUTH (actions/setup-node#1551).
           package-manager-cache: false
 
       - name: Install and test
@@ -77,5 +78,5 @@ jobs:
           npm test
 
       - name: Publish
-        # OIDC — do not set NODE_AUTH_TOKEN; npm falls back to trusted publishing.
+        # OIDC — do not set NODE_AUTH_TOKEN; npm uses trusted publishing.
         run: npm publish --access public
