@@ -1,13 +1,21 @@
 # Publish the TypeScript SDK to npm when a v* tag is pushed
 # (same tags as the GoReleaser GitHub Release workflow).
 #
-# Requires repository secret NPM_TOKEN (npm Automation or granular access token
-# with publish rights for the `skilleval` package).
+# Auth: npm Trusted Publishing (OIDC). No NPM_TOKEN required for publish.
+# Configure on npmjs.com → package skilleval → Settings → Trusted Publisher:
+#   Organization or user: daniel-walters
+#   Repository:           skilleval
+#   Workflow filename:    publish-npm.yml
+#   Allowed actions:      npm publish
 #
-# First publish of an already-cut tag: Actions → Publish npm → Run workflow
-# with the version (e.g. 0.1.0), after NPM_TOKEN is set. The job always
-# checks out refs/tags/v<version> (not the branch selected for the workflow
-# file), so npm content matches the GitHub Release for that tag.
+# Requires npm CLI ≥ 11.5.1 (Node 24+). GitHub-hosted runners only.
+#
+# First-ever publish (package does not exist yet): publish once with
+# `npm login` locally from sdk/typescript at the release tag, then add the
+# trusted publisher above. Later tags publish via this workflow.
+#
+# Backfill an already-cut tag: Actions → Publish npm → Run workflow with
+# version (e.g. 0.1.1). Always checks out refs/tags/v<version>.
 
 name: Publish npm
 
@@ -24,6 +32,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write # OIDC for npm trusted publishing
 
 jobs:
   npm:
@@ -55,10 +64,12 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "20"
-          registry-url: https://registry.npmjs.org
-          cache: npm
-          cache-dependency-path: sdk/typescript/package-lock.json
+          # Node 24 ships npm ≥ 11.5.1 required for OIDC trusted publishing.
+          node-version: "24"
+          # Do not set registry-url: setup-node would write an empty
+          # //registry.npmjs.org/:_authToken line that makes npm skip OIDC
+          # and fail with ENEEDAUTH (actions/setup-node#1551).
+          package-manager-cache: false
 
       - name: Install and test
         run: |
@@ -67,6 +78,5 @@ jobs:
           npm test
 
       - name: Publish
+        # OIDC — do not set NODE_AUTH_TOKEN; npm uses trusted publishing.
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

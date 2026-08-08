@@ -59,7 +59,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-That runs the [Release](.github/workflows/release.yml) workflow (GoReleaser), which publishes multi-platform archives and checksums to GitHub Releases, and the [Publish npm](.github/workflows/publish-npm.yml) workflow, which publishes `sdk/typescript` as [`skilleval` on npm](https://www.npmjs.com/package/skilleval) (requires the `NPM_TOKEN` repository secret).
+That runs the [Release](.github/workflows/release.yml) workflow (GoReleaser), which publishes multi-platform archives and checksums to GitHub Releases, and the [Publish npm](.github/workflows/publish-npm.yml) workflow, which publishes `sdk/typescript` as [`skilleval` on npm](https://www.npmjs.com/package/skilleval) via [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC — no long-lived `NPM_TOKEN`).
 
 ## Authoring an eval
 
