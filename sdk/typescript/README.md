@@ -10,18 +10,20 @@ YAML remains valid CLI authoring; this package is the typed alternative. Root au
 - `skilleval` binary on `PATH`, or set `SKILLEVAL_BIN` to the binary path
 - Runner credentials unchanged from the Go CLI (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`)
 
-## Install (local)
+## Install
+
+```bash
+npm install skilleval
+```
+
+The package drives the Go `skilleval` CLI — install a [release binary](https://github.com/daniel-walters/skilleval/releases) or `go install`, and keep it on `PATH` (or set `SKILLEVAL_BIN`).
+
+From a clone of this repo (development):
 
 ```bash
 cd sdk/typescript
 npm install
 npm run build
-```
-
-From another package in the monorepo:
-
-```bash
-npm install ../path/to/skilleval/sdk/typescript
 ```
 
 ## Usage
