@@ -298,6 +298,48 @@ func TestRunUnknownModelCostNil(t *testing.T) {
 	}
 }
 
+func TestRunEstimatesCostForComposer2(t *testing.T) {
+	dir := t.TempDir()
+	setupEval(t, dir)
+
+	agent := &fakeAgent{
+		obs: runner.AgentObservables{
+			ID:     "run_composer2",
+			Status: result.StatusFinished,
+			Usage: result.Usage{
+				InputTokens:  10,
+				OutputTokens: 5,
+				TotalTokens:  15,
+			},
+			// No CostUSD: estimate from composer-2 rates (same as composer-2.5).
+		},
+	}
+
+	ev, err := eval.Load(filepath.Join(dir, "eval.yaml"))
+	if err != nil {
+		t.Fatalf("eval.Load: %v", err)
+	}
+	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+		Model: "composer-2",
+		Agent: agent,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(workspace) }()
+
+	if r.Eval.Model != "composer-2" {
+		t.Fatalf("model = %q, want composer-2", r.Eval.Model)
+	}
+	// composer-2: (10*0.5 + 5*2.5) / 1e6 = 0.0000175
+	if r.Metrics.CostUSD == nil {
+		t.Fatal("costUSD = nil, want estimate")
+	}
+	if want := 0.0000175; math.Abs(*r.Metrics.CostUSD-want) > 1e-12 {
+		t.Fatalf("costUSD = %g, want %g", *r.Metrics.CostUSD, want)
+	}
+}
+
 func TestRunClaudeDoesNotUseCursorRates(t *testing.T) {
 	dir := t.TempDir()
 	setupEval(t, dir)

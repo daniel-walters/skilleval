@@ -57,7 +57,7 @@ Replace `v0.1.0` with a [release tag](https://github.com/daniel-walters/skilleva
 
 ## Credentials
 
-Live runs need credentials in the environment (or a `.env` in the current working directory):
+Live runs need credentials in the environment. The **CLI** also loads a `.env` from the current working directory (process env wins over `.env`). TypeScript `run()` does **not** load `.env` — export vars in the shell, use a runner that loads `.env` (e.g. `tsx --env-file=.env`), or rely on CI secrets.
 
 - **Cursor** (`--runner cursor`, default): `CURSOR_API_KEY`
 - **Claude** (`--runner claude`): `ANTHROPIC_API_KEY` for CI / headless runs, or an existing `claude login` / Max subscription session locally
@@ -66,6 +66,7 @@ Live runs need credentials in the environment (or a `.env` in the current workin
 echo 'CURSOR_API_KEY=...' > .env
 # or
 echo 'ANTHROPIC_API_KEY=...' > .env
+export MODEL=composer-2.5   # example Cursor model id (also used below)
 ```
 
 Already-set process environment variables win over `.env` (use that in CI). `.env` is gitignored. Local Claude subscription auth does not replace `ANTHROPIC_API_KEY` in CI.
@@ -73,9 +74,9 @@ Already-set process environment variables win over `.env` (use that in CI). `.en
 ## Quick start
 
 ```bash
-skilleval run examples/refactor-helper/eval.yaml --model <ID>
-skilleval run examples/mcp-ping/eval.yaml --model <ID>
-skilleval run examples/refactor-helper/eval.yaml --model <ID> --runner claude
+skilleval run examples/refactor-helper/eval.yaml --model composer-2.5
+skilleval run examples/mcp-ping/eval.yaml --model composer-2.5
+skilleval run examples/refactor-helper/eval.yaml --model composer-2.5 --runner claude
 ```
 
 Optional `--timeout` bounds each attempt (Go duration, e.g. `30m`). When omitted, attempts run without a deadline.
@@ -87,7 +88,7 @@ Default artifacts:
 - `result.json` — per-attempt Result
 - `result-summary.json` — summary with `passRate` and average metrics (including single-attempt runs)
 
-When the harness omits `costUSD`, skilleval estimates it from a per-provider rate table (`cost/rates.json`): Cursor uses the `cursor` catalog; Claude prefers the SDK’s `total_cost_usd`.
+When the harness omits `costUSD`, skilleval estimates it from a per-provider rate table (`cost/rates.json`): Cursor uses the `cursor` catalog; Claude prefers the SDK’s `total_cost_usd`. Unknown or unpriced `--model` ids leave `costUSD` nil; any cost bound then fails.
 
 ## Authoring an eval
 
@@ -143,7 +144,7 @@ Complete examples: [`examples/refactor-helper/eval.yaml`](examples/refactor-help
 
 YAML remains the CLI authoring path. The npm package is the typed alternative: same Go CLI under the hood (shipped for your platform), same expect catalog, IntelliSense on matchers.
 
-Requires Node.js 18+. Credentials — see [Credentials](#credentials).
+Requires Node.js 18+. Credentials — see [Credentials](#credentials) (export `MODEL` / keys into the process; `run()` does not load `.env`).
 
 ```ts
 import { run, expect } from "@danielwaltersdev/skilleval";
@@ -172,7 +173,12 @@ expect(result, workspace).file("src/gone.go").toHaveBeenDeleted();
 expect(result).finalMessage.toMatch(/Refactor/);
 ```
 
-Full worked example: [`examples/refactor-helper/eval.ts`](examples/refactor-helper/eval.ts).
+Full worked example: [`examples/refactor-helper/eval.ts`](examples/refactor-helper/eval.ts). Run it with:
+
+```bash
+cd examples/refactor-helper
+MODEL=composer-2.5 npx tsx eval.ts
+```
 
 Keep YAML for the prompt/skill/input and assert in TypeScript:
 
@@ -257,21 +263,21 @@ Batch exit status is **not** fail-on-any-attempt. The process exits non-zero onl
 By default, `skilleval run` retains each summary under `.skilleval/history/<eval-name>/` (timestamped JSON plus `latest.json`) and prints an informational comparison against that eval's prior `latest.json` when one exists. First runs skip compare cleanly. `.skilleval/` is gitignored.
 
 ```bash
-skilleval run eval.yaml --model <ID>
+skilleval run eval.yaml --model composer-2.5
 ```
 
 Opt out for ephemeral one-shots:
 
 ```bash
-skilleval run eval.yaml --model <ID> --no-history --no-baseline
+skilleval run eval.yaml --model composer-2.5 --no-history --no-baseline
 # retain but skip compare:
-skilleval run eval.yaml --model <ID> --no-baseline
+skilleval run eval.yaml --model composer-2.5 --no-baseline
 ```
 
 Override the history directory or pass an explicit baseline (e.g. a CI artifact). Comparison deltas do not change exit status:
 
 ```bash
-skilleval run eval.yaml --model <ID> \
+skilleval run eval.yaml --model composer-2.5 \
   --history /tmp/eval-history \
   --baseline /tmp/prior-summary.json
 ```

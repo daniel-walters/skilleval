@@ -3,7 +3,10 @@
  * Paths are relative to this directory (same as the YAML).
  *
  * Prerequisites: Node 18+, `@danielwaltersdev/skilleval` (ships platform CLI;
- * or SKILLEVAL_BIN / PATH). Credentials unchanged from the CLI.
+ * or SKILLEVAL_BIN / PATH). CURSOR_API_KEY (or ANTHROPIC_API_KEY) and MODEL
+ * in the process env (run() does not load .env).
+ *
+ *   MODEL=composer-2.5 npx tsx eval.ts
  */
 import { run, expect } from "@danielwaltersdev/skilleval";
 
