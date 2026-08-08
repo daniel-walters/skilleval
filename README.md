@@ -12,7 +12,7 @@ Give it a skill, a prompt, and optional fixtures. It runs an agent with that ski
 | In scope | Not yet |
 | --- | --- |
 | Cursor and Claude runners | Other agent runtimes (Codex, Gemini, …) |
-| Single-eval CLI (`run` / `compare`) | Suite discovery / directory of evals |
+| Single-eval CLI (`run` / `compare`); TS discover by name (`eval.ts` / `*.eval.ts`) | YAML suite discovery / directory of evals |
 | Multi-run batches, history, baseline compare | Model matrix in one invocation |
 | Native project MCP seeding | Interactive OAuth MCP in CI |
 | YAML + TypeScript client (npm ships platform CLI); GitHub Release / `go install` | Homebrew / apt |
@@ -39,7 +39,17 @@ That installs the typed client and a platform `skilleval` binary (via optionalDe
 }
 ```
 
-Override with `SKILLEVAL_BIN` if needed. See [TypeScript](#typescript) below.
+TypeScript-only projects can call `skilleval` without `tsx` on the eval file:
+
+```json
+{
+  "scripts": {
+    "eval": "skilleval run"
+  }
+}
+```
+
+That discovers `eval.{ts,mts,js,mjs}` and `*.eval.{ts,mts,js,mjs}` under the current directory (skips `node_modules`, hidden dirs, and common build outputs like `dist`), or pass an explicit path: `skilleval run ./eval.ts`. Put `model` on `run({ … })` or in `MODEL`. Override with `SKILLEVAL_BIN` if needed. See [TypeScript](#typescript) below.
 
 ### CLI binary only
 
@@ -173,11 +183,13 @@ expect(result, workspace).file("src/gone.go").toHaveBeenDeleted();
 expect(result).finalMessage.toMatch(/Refactor/);
 ```
 
-Full worked example: [`examples/refactor-helper/eval.ts`](examples/refactor-helper/eval.ts). Run it with:
+Full worked example: [`examples/refactor-helper/eval.ts`](examples/refactor-helper/eval.ts). Run it with the npm `skilleval` bin (from a project that depends on `@danielwaltersdev/skilleval`, or this repo after `npm run build` in `sdk/typescript`):
 
 ```bash
 cd examples/refactor-helper
-MODEL=composer-2.5 npx tsx eval.ts
+MODEL=composer-2.5 skilleval run ./eval.ts
+# or discover eval.ts / *.eval.ts under cwd:
+MODEL=composer-2.5 skilleval run
 ```
 
 Keep YAML for the prompt/skill/input and assert in TypeScript:
