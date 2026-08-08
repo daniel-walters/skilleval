@@ -32,6 +32,17 @@ describe("parseRunArgv", () => {
     });
   });
 
+  it("treats single-dash Go flags as value-taking", () => {
+    assert.deepEqual(parseRunArgv(["-model", "m", "eval.yaml"]), {
+      flags: ["-model", "m"],
+      positional: "eval.yaml",
+    });
+    assert.deepEqual(parseRunArgv(["eval.yaml", "-runner", "claude"]), {
+      flags: ["-runner", "claude"],
+      positional: "eval.yaml",
+    });
+  });
+
   it("allows no positional", () => {
     assert.deepEqual(parseRunArgv([]), {
       flags: [],
@@ -39,10 +50,10 @@ describe("parseRunArgv", () => {
     });
   });
 
-  it("errors on multiple positionals", () => {
+  it("marks multiple positionals as ambiguous", () => {
     const r = parseRunArgv(["a.ts", "b.ts"]);
     assert.equal(r.positional, undefined);
-    assert.match(r.error ?? "", /at most one path/);
+    assert.equal(r.ambiguous, true);
   });
 });
 
@@ -84,6 +95,44 @@ describe("main routing", () => {
     ]);
   });
 
+  it("forwards YAML run with single-dash -model to Go", async () => {
+    const calls: string[][] = [];
+    const spawn: SpawnFn = ((_cmd, args) => {
+      calls.push(args as string[]);
+      return fakeChild(0);
+    }) as SpawnFn;
+
+    const code = await main(["run", "-model", "m", "eval.yaml"], {
+      spawn,
+      resolveBinary: () => "/fake/skilleval",
+      resolveTsxImport: () => "/fake/tsx",
+      cwd: () => "/proj",
+      stdout: () => undefined,
+      stderr: () => undefined,
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(calls, [["run", "-model", "m", "eval.yaml"]]);
+  });
+
+  it("forwards run --help to Go", async () => {
+    const calls: string[][] = [];
+    const spawn: SpawnFn = ((_cmd, args) => {
+      calls.push(args as string[]);
+      return fakeChild(0);
+    }) as SpawnFn;
+
+    const code = await main(["run", "--help"], {
+      spawn,
+      resolveBinary: () => "/fake/skilleval",
+      resolveTsxImport: () => "/fake/tsx",
+      cwd: () => "/proj",
+      stdout: () => undefined,
+      stderr: () => undefined,
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(calls, [["run", "--help"]]);
+  });
+
   it("forwards non-run commands to Go", async () => {
     const calls: { cmd: string; args: string[] }[] = [];
     const spawn: SpawnFn = ((cmd, args) => {
@@ -115,6 +164,22 @@ describe("main routing", () => {
     });
     assert.equal(code, 2);
     assert.match(err.join("\n"), /do not accept CLI flags/);
+  });
+
+  it("prints FAIL when an explicit script path is missing", async () => {
+    const out: string[] = [];
+    const err: string[] = [];
+    const code = await main(["run", "/no/such/eval.js"], {
+      spawn: (() => fakeChild(0)) as SpawnFn,
+      resolveBinary: () => "/fake/skilleval",
+      resolveTsxImport: () => "/fake/tsx",
+      cwd: () => "/proj",
+      stdout: (l) => out.push(l),
+      stderr: (l) => err.push(l),
+    });
+    assert.equal(code, 1);
+    assert.match(err.join("\n"), /not found/);
+    assert.equal(out[0], "FAIL /no/such/eval.js");
   });
 
   it("runs an explicit .js eval with cwd = file dir and prints PASS", async () => {

@@ -55,17 +55,40 @@ export function resolveTsxImport(): string {
 
 type RunParse =
   | { kind: "forward"; argv: string[] }
-  | { kind: "scripts"; files: string[]; flags: string[] }
-  | { kind: "usage"; message: string };
+  | { kind: "scripts"; files: string[]; flags: string[] };
+
+/** Go `flag` accepts both `-name` and `--name` for value-taking run flags. */
+const VALUE_FLAGS = new Set([
+  "-model",
+  "--model",
+  "-runner",
+  "--runner",
+  "-out",
+  "--out",
+  "-timeout",
+  "--timeout",
+  "-history",
+  "--history",
+  "-baseline",
+  "--baseline",
+]);
+
+function flagName(arg: string): string {
+  const eq = arg.indexOf("=");
+  return eq === -1 ? arg : arg.slice(0, eq);
+}
 
 /**
  * Split `run` argv into flags vs a single optional positional path.
  * Flags may appear before or after the path (same as the Go CLI).
+ *
+ * Ambiguous multi-positional parses return `ambiguous: true` so the caller
+ * can forward to Go instead of inventing a usage error.
  */
 export function parseRunArgv(args: string[]): {
   flags: string[];
   positional: string | undefined;
-  error?: string;
+  ambiguous?: boolean;
 } {
   const flags: string[] = [];
   const positionals: string[] = [];
@@ -77,14 +100,10 @@ export function parseRunArgv(args: string[]): {
     }
     if (a.startsWith("-")) {
       flags.push(a);
-      // Value-taking flags: --model ID, --runner, --out, --timeout, --history, --baseline
+      // Value-taking flags: -model / --model ID (skip when -model=ID)
       if (
-        (a === "--model" ||
-          a === "--runner" ||
-          a === "--out" ||
-          a === "--timeout" ||
-          a === "--history" ||
-          a === "--baseline") &&
+        !a.includes("=") &&
+        VALUE_FLAGS.has(flagName(a)) &&
         i + 1 < args.length &&
         !args[i + 1]!.startsWith("-")
       ) {
@@ -98,19 +117,25 @@ export function parseRunArgv(args: string[]): {
     return {
       flags,
       positional: undefined,
-      error: `run: expected at most one path, got ${positionals.length}`,
+      ambiguous: true,
     };
   }
   return { flags, positional: positionals[0] };
 }
 
 function planRun(args: string[], cwd: string): RunParse {
-  const { flags, positional, error } = parseRunArgv(args);
-  if (error) {
-    return { kind: "usage", message: error };
+  const { flags, positional, ambiguous } = parseRunArgv(args);
+  // Parse ambiguity (e.g. unexpected extra tokens) → let Go decide.
+  if (ambiguous) {
+    return { kind: "forward", argv: ["run", ...args] };
   }
   if (!positional) {
-    return { kind: "scripts", files: [], flags };
+    // Discover only for bare `run`. Flags without a path (`--help`, `-model`, …)
+    // forward to Go so help and Go usage errors keep working.
+    if (flags.length > 0) {
+      return { kind: "forward", argv: ["run", ...args] };
+    }
+    return { kind: "scripts", files: [], flags: [] };
   }
   if (isScriptEvalPath(positional)) {
     return {
@@ -196,11 +221,12 @@ async function runOneScript(
   file: string,
   cwd: string,
 ): Promise<number> {
+  const label = displayPath(file, cwd);
   if (!fs.existsSync(file)) {
     deps.stderr(`skilleval: eval file not found: ${file}`);
+    deps.stdout(`FAIL ${label}`);
     return EXIT_FAIL;
   }
-  const label = displayPath(file, cwd);
   let command: string;
   let args: string[];
   try {
@@ -208,6 +234,7 @@ async function runOneScript(
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     deps.stderr(`skilleval: ${detail}`);
+    deps.stdout(`FAIL ${label}`);
     return EXIT_FAIL;
   }
   const fileDir = path.dirname(file);
@@ -287,9 +314,6 @@ export async function main(
   const cwd = deps.cwd();
   const plan = planRun(argv.slice(1), cwd);
   switch (plan.kind) {
-    case "usage":
-      deps.stderr(`skilleval: ${plan.message}`);
-      return EXIT_USAGE;
     case "forward":
       return forwardToGo(deps, plan.argv);
     case "scripts":
