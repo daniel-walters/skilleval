@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { stringify as stringifyYaml } from "yaml";
 
+import { missingBinaryHint, resolveSkillevalBinary } from "./binary.js";
 import type { EvalDocument, RunOptions, RunOverrides } from "./eval.js";
 import type { Result, Summary } from "./result.js";
 
@@ -182,7 +183,7 @@ export function appendReportFlags(
 }
 
 async function invokeCli(evalPath: string, flags: CliFlags): Promise<RunResult> {
-  const bin = resolveBinary();
+  const bin = resolveSkillevalBinary();
   let outPath: string;
   let outCleanup: string | undefined;
   if (flags.out) {
@@ -230,14 +231,6 @@ async function invokeCli(evalPath: string, flags: CliFlags): Promise<RunResult> 
   }
 }
 
-function resolveBinary(): string {
-  const fromEnv = process.env.SKILLEVAL_BIN?.trim();
-  if (fromEnv) {
-    return fromEnv;
-  }
-  return "skilleval";
-}
-
 interface WroteLine {
   outPath: string;
   workspace: string;
@@ -280,9 +273,7 @@ function spawnCapture(
     });
     child.on("error", (err) => {
       reject(
-        new Error(
-          `run: failed to spawn ${bin}: ${err.message} (set SKILLEVAL_BIN or install skilleval on PATH)`,
-        ),
+        new Error(`run: failed to spawn ${bin}: ${err.message} (${missingBinaryHint()})`),
       );
     });
     child.on("close", (code) => {

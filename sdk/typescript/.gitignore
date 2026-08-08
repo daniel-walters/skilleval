@@ -2,3 +2,5 @@ node_modules/
 dist/
 dist-test/
 *.tsbuildinfo
+platforms/*/bin/skilleval
+platforms/*/bin/skilleval.exe

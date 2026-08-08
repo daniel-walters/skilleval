@@ -1,0 +1,24 @@
+{
+  "name": "@danielwaltersdev/skilleval-darwin-arm64",
+  "version": "0.1.1",
+  "description": "skilleval Go CLI binary for darwin-arm64",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daniel-walters/skilleval.git",
+    "directory": "sdk/typescript/platforms/darwin-arm64"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
