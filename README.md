@@ -282,3 +282,14 @@ In CI, upload the current `*-summary.json` as an artifact; on the next job, down
 ## CI
 
 GitHub Actions is the source of truth for merge readiness. On pull requests and pushes to `main`, CI runs `gofmt`, `go vet`, `go test`, and `golangci-lint`. Local pre-commit is recommended for a faster feedback loop, but a green CI check is what counts for merge.
+
+### Harness agent SDK pins
+
+Each runner embeds a small Node helper with an exact npm pin and lockfile (`npm ci` at prepare time). Those files are the `go:embed` inputs:
+
+| Runner | Package | Pin + lockfile |
+| --- | --- | --- |
+| Cursor | `@cursor/sdk` | [`runner/cursoragent/`](runner/cursoragent/) |
+| Claude | `@anthropic-ai/claude-agent-sdk` | [`runner/claudeagent/`](runner/claudeagent/) |
+
+[Dependabot](.github/dependabot.yml) checks those directories weekly and opens PRs that update `package.json` + `package-lock.json` for the SDK packages only. Merge when CI is green; no separate embed step. Manual bump: edit the pin in that helper’s `package.json`, run `npm install` there to refresh the lockfile, then commit both files.

@@ -1,0 +1,25 @@
+# Keep pinned harness agent SDKs current (lockfile + go:embed inputs).
+# Scope: only the Cursor/Claude helper packages under runner/ — not sdk/typescript.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /runner/cursoragent
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-name: "@cursor/sdk"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    open-pull-requests-limit: 1
+
+  - package-ecosystem: npm
+    directory: /runner/claudeagent
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-name: "@anthropic-ai/claude-agent-sdk"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    open-pull-requests-limit: 1
