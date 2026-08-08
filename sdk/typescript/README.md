@@ -7,7 +7,7 @@ YAML remains valid CLI authoring; this package is the typed alternative. Root au
 ## Prerequisites
 
 - Node.js 18+
-- Runner credentials (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`) in the process environment or a cwd `.env` — `run()` loads `.env` the same as the Go CLI (process env wins). Put `model` on the `run({ … })` call (or pass `--model` to the CLI).
+- Runner credentials (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`) in the process environment or a cwd `.env` — `run()` loads `.env` the same as the Go CLI (process env wins). Put `model` on the `run({ … })` call (or pass `--model` to the YAML CLI).
 
 ## Install
 
@@ -22,7 +22,7 @@ YAML:
 ```json
 {
   "scripts": {
-    "eval": "skilleval run ./eval.yaml --model \"$MODEL\""
+    "eval": "skilleval run ./eval.yaml --model composer-2.5"
   }
 }
 ```
@@ -37,7 +37,7 @@ TypeScript-only (no `tsx` on the eval file) — discovers `eval.{ts,mts,js,mjs}`
 }
 ```
 
-Put `model` on `run({ … })` or in `MODEL`. Script evals do not take Go CLI flags (`--model`, etc.). Resolution order for the Go binary: `SKILLEVAL_BIN` → packaged platform binary → `skilleval` on `PATH`.
+Put `model` on `run({ … })`. Script evals do not take Go CLI flags (`--model`, etc.). Relative `skill` / `input` paths resolve from the eval file’s directory (the process cwd when the script runs), so keep the script next to those folders or path relative to it. Resolution order for the Go binary: `SKILLEVAL_BIN` → packaged platform binary → `skilleval` on `PATH`.
 
 From a clone of this repo (development):
 
@@ -65,7 +65,7 @@ const { result, workspace } = await run({
 Do all three: modify foo.go, create new.go, delete gone.go.`,
   skill: "./skills/refactor-helper",
   input: "./fixtures/refactor-helper",
-  model: process.env.MODEL!,
+  model: "composer-2.5",
 });
 
 expect(result).turns.toBeLessThanOrEqual(15);
@@ -82,7 +82,7 @@ Example run (from the example directory, with this package installed / linked):
 
 ```bash
 cd examples/refactor-helper
-MODEL=composer-2.5 skilleval run ./eval.ts
+skilleval run ./eval.ts
 ```
 
 `run` returns `{ result, workspace, summary?, exitCode }`. A non-zero `exitCode` means the Go CLI failed YAML expects or a pass-rate gate after writing Result; Result is still returned so `expect()` can assert.
@@ -96,7 +96,7 @@ await run({
   name: "refactor-helper",
   prompt: "...",
   skill: "./skills/refactor-helper",
-  model: process.env.MODEL!,
+  model: "composer-2.5",
   noHistory: true,
   noBaseline: true,
 });
@@ -106,7 +106,7 @@ Or load an existing eval YAML (keeps prompt/skill/input in YAML; assert in TypeS
 
 ```ts
 const ev = await loadEval("./eval.yaml");
-const { result, workspace } = await run(ev, { model: process.env.MODEL! });
+const { result, workspace } = await run(ev, { model: "composer-2.5" });
 ```
 
 ## Matcher namespaces
