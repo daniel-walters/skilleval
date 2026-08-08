@@ -2,8 +2,8 @@
  * TypeScript authoring equivalent of eval.yaml.
  * Paths are relative to this directory (same as the YAML).
  *
- * Prerequisites: skilleval on PATH (or SKILLEVAL_BIN), Node 18+,
- * and a local install of sdk/typescript. Credentials unchanged from the CLI.
+ * Prerequisites: Node 18+, `@danielwaltersdev/skilleval` (ships platform CLI;
+ * or SKILLEVAL_BIN / PATH). Credentials unchanged from the CLI.
  */
 import { run, expect } from "@danielwaltersdev/skilleval";
 

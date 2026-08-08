@@ -1,6 +1,6 @@
 # Development
 
-Maintainer notes for working on skilleval itself. Author-facing usage lives in the [root README](../README.md). Releases: [releasing.md](releasing.md).
+Maintainer notes for working on skilleval itself. Author-facing usage lives in the [root README](../README.md). Releases: [releasing.md](releasing.md). Architecture: [adrs/003_npm-platform-binaries.md](adrs/003_npm-platform-binaries.md).
 
 ## Build from source
 
