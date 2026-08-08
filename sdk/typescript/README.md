@@ -1,6 +1,8 @@
 # skilleval (TypeScript)
 
-In-repo TypeScript client for [skilleval](../../README.md). Runs evals through the Go `skilleval` CLI and asserts with typed `expect` matchers that mirror the shared YAML catalog.
+In-repo TypeScript client for [skilleval](../../README.md#typescript). Runs evals through the Go `skilleval` CLI and asserts with typed `expect` matchers that mirror the shared YAML catalog.
+
+YAML remains valid CLI authoring; this package is the typed alternative. Root authoring docs (install → `run` → `expect`) live in the [README TypeScript section](../../README.md#typescript). Full worked example: [`examples/refactor-helper/eval.ts`](../../examples/refactor-helper/eval.ts).
 
 ## Prerequisites
 
@@ -29,23 +31,48 @@ import { run, expect, loadEval } from "skilleval";
 
 const { result, workspace } = await run({
   name: "refactor-helper",
-  prompt: "…",
+  prompt: `Use the refactor-helper skill on this package:
+
+1. Refactor src/foo.go for clarity (simplify Foo; keep package demo and the Foo name).
+2. Extract a small helper into a new file src/new.go (e.g. a greetPrefix helper used by Foo).
+3. Delete src/gone.go — it is obsolete legacy code.
+
+Do all three: modify foo.go, create new.go, delete gone.go.`,
   skill: "./skills/refactor-helper",
   input: "./fixtures/refactor-helper",
   model: process.env.MODEL!,
 });
 
-expect(result, workspace).turns.toBeLessThanOrEqual(15);
+expect(result).turns.toBeLessThanOrEqual(15);
+expect(result).costUSD.toBeLessThanOrEqual(1);
+expect(result).toolsUsed.toInclude("read", "edit").not.toInclude("web");
+expect(result).skills.activated.toInclude("refactor-helper");
 expect(result, workspace).file("src/foo.go").toHaveBeenModified().toContain(/func Foo/);
+expect(result, workspace).file("src/new.go").toHaveBeenCreated().toContain("package demo");
+expect(result, workspace).file("src/gone.go").toHaveBeenDeleted();
+expect(result).finalMessage.toMatch(/Refactor/);
 ```
 
 `run` returns `{ result, workspace, summary?, exitCode }`. A non-zero `exitCode` means the Go CLI failed YAML expects or a pass-rate gate after writing Result; Result is still returned so `expect()` can assert.
-Or load an existing eval YAML:
+
+Or load an existing eval YAML (keeps prompt/skill/input in YAML; assert in TypeScript):
 
 ```ts
 const ev = await loadEval("./eval.yaml");
 const { result, workspace } = await run(ev, { model: process.env.MODEL! });
 ```
+
+## Matcher namespaces
+
+| Namespace | Matchers |
+| --- | --- |
+| `turns` / `costUSD` | `toBeLessThan`, `toBeLessThanOrEqual`, `toBeGreaterThan`, `toBeGreaterThanOrEqual`, `toBeEqual` |
+| `toolsUsed` | `toInclude(...strings)`, `.not.toInclude(...strings)` |
+| `skills.activated` | `toInclude(...strings)` |
+| `file(path)` | `toHaveStatus`, `toHaveBeenCreated` / `Modified` / `Deleted`, `toContain`, `toEqual` (pass `workspace` for content) |
+| `finalMessage` | `toContain(string)`, `toMatch(RegExp)`, `toEqual(string \| RegExp)` |
+
+Non-`finished` results fail as `run.status` before other checks. Matchers throw `ExpectError` with checker-style `path` + `reason`.
 
 ## Develop
 
@@ -53,5 +80,3 @@ const { result, workspace } = await run(ev, { model: process.env.MODEL! });
 npm test    # tsc + node --test
 npm run build
 ```
-
-Authoring narrative and root README examples live in a follow-up docs ticket; this package README covers install and the public API surface only.
