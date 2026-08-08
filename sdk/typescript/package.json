@@ -1,5 +1,5 @@
 {
-  "name": "skilleval",
+  "name": "@danielwaltersdev/skilleval",
   "version": "0.1.1",
   "description": "TypeScript client for skilleval: run evals via the Go CLI and assert with typed expect matchers",
   "type": "module",

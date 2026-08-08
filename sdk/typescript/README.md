@@ -13,7 +13,7 @@ YAML remains valid CLI authoring; this package is the typed alternative. Root au
 ## Install
 
 ```bash
-npm install skilleval
+npm install @danielwaltersdev/skilleval
 ```
 
 The package drives the Go `skilleval` CLI — install a [release binary](https://github.com/daniel-walters/skilleval/releases) or `go install`, and keep it on `PATH` (or set `SKILLEVAL_BIN`).
@@ -29,7 +29,7 @@ npm run build
 ## Usage
 
 ```ts
-import { run, expect, loadEval } from "skilleval";
+import { run, expect, loadEval } from "@danielwaltersdev/skilleval";
 
 const { result, workspace } = await run({
   name: "refactor-helper",

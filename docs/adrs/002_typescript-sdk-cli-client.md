@@ -12,7 +12,7 @@ Without a recorded decision, later work risks re-litigating CLI-vs-native packag
 
 ## Decision
 
-Ship an in-repo TypeScript package at `sdk/typescript` (npm name `skilleval`) as a **deep client over the Go CLI**:
+Ship an in-repo TypeScript package at `sdk/typescript` (npm name `@danielwaltersdev/skilleval`; unscoped `skilleval` is blocked by npm as too similar to `skill-eval`) as a **deep client over the Go CLI**:
 
 - `run` / eval execution invoke the `skilleval` binary (`SKILLEVAL_BIN`, then `PATH`).
 - Authors assert with typed **Jest-like matcher names** in TypeScript. The package does **not** depend on Vitest or Jest and is not a test runner.
