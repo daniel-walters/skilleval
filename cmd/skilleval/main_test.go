@@ -16,6 +16,7 @@ func TestSplitFlagsAndPositionals(t *testing.T) {
 	tests := []struct {
 		name      string
 		args      []string
+		boolFlags []string
 		wantFlags []string
 		wantPos   []string
 	}{
@@ -37,10 +38,24 @@ func TestSplitFlagsAndPositionals(t *testing.T) {
 			wantFlags: []string{"--model=m"},
 			wantPos:   []string{"eval.yaml"},
 		},
+		{
+			name:      "bool flag before path",
+			args:      []string{"--no-history", "eval.yaml"},
+			boolFlags: []string{"no-history"},
+			wantFlags: []string{"--no-history"},
+			wantPos:   []string{"eval.yaml"},
+		},
+		{
+			name:      "bool flag does not swallow following value flag",
+			args:      []string{"--no-history", "--baseline", "b.json", "eval.yaml"},
+			boolFlags: []string{"no-history", "no-baseline"},
+			wantFlags: []string{"--no-history", "--baseline", "b.json"},
+			wantPos:   []string{"eval.yaml"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			flags, pos, err := splitFlagsAndPositionals(tt.args)
+			flags, pos, err := splitFlagsAndPositionals(tt.args, tt.boolFlags...)
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
@@ -227,5 +242,145 @@ func TestEmitReportBaselineSameAsSummaryPath(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "1 → 4") {
 		t.Fatalf("expected delta against prior summary file, got %q", buf.String())
+	}
+}
+
+func TestResolveReportOpts(t *testing.T) {
+	dir := t.TempDir()
+	histDir := filepath.Join(dir, "hist")
+
+	t.Run("default history no latest", func(t *testing.T) {
+		opts, err := resolveReportOpts("e", histDir, false, "", false)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		if opts.historyDir != histDir {
+			t.Fatalf("historyDir = %q, want %q", opts.historyDir, histDir)
+		}
+		if opts.baseline != "" {
+			t.Fatalf("baseline = %q, want empty", opts.baseline)
+		}
+		if opts.evalName != "e" {
+			t.Fatalf("evalName = %q", opts.evalName)
+		}
+	})
+
+	t.Run("auto baseline when latest exists", func(t *testing.T) {
+		if _, err := history.Retain(histDir, "e", summary.Report{PassRate: 1}); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+		latest := filepath.Join(histDir, "e", "latest.json")
+		opts, err := resolveReportOpts("e", histDir, false, "", false)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		if opts.baseline != latest {
+			t.Fatalf("baseline = %q, want %q", opts.baseline, latest)
+		}
+	})
+
+	t.Run("no-history clears retain and auto baseline", func(t *testing.T) {
+		opts, err := resolveReportOpts("e", histDir, true, "", false)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		if opts.historyDir != "" || opts.baseline != "" {
+			t.Fatalf("opts = %+v, want empty history and baseline", opts)
+		}
+	})
+
+	t.Run("no-history with explicit baseline", func(t *testing.T) {
+		base := filepath.Join(dir, "base.json")
+		if err := summary.Write(base, summary.Report{PassRate: 1}); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		opts, err := resolveReportOpts("e", histDir, true, base, false)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		if opts.historyDir != "" {
+			t.Fatalf("historyDir = %q, want empty", opts.historyDir)
+		}
+		if opts.baseline != base {
+			t.Fatalf("baseline = %q, want %q", opts.baseline, base)
+		}
+	})
+
+	t.Run("no-baseline retains without compare", func(t *testing.T) {
+		opts, err := resolveReportOpts("e", histDir, false, "", true)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		if opts.historyDir != histDir {
+			t.Fatalf("historyDir = %q, want %q", opts.historyDir, histDir)
+		}
+		if opts.baseline != "" {
+			t.Fatalf("baseline = %q, want empty", opts.baseline)
+		}
+	})
+
+	t.Run("explicit baseline wins over latest", func(t *testing.T) {
+		other := filepath.Join(dir, "other.json")
+		if err := summary.Write(other, summary.Report{PassRate: 0.5}); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		opts, err := resolveReportOpts("e", histDir, false, other, false)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		if opts.baseline != other {
+			t.Fatalf("baseline = %q, want %q", opts.baseline, other)
+		}
+	})
+
+	t.Run("no-baseline conflicts with baseline", func(t *testing.T) {
+		_, err := resolveReportOpts("e", histDir, false, filepath.Join(dir, "x.json"), true)
+		if err == nil || !strings.Contains(err.Error(), "--no-baseline conflicts with --baseline") {
+			t.Fatalf("err = %v", err)
+		}
+	})
+
+	t.Run("empty historyDir uses default when retaining", func(t *testing.T) {
+		opts, err := resolveReportOpts("e", "", false, "", false)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		want, err := filepath.Abs(defaultHistoryDir)
+		if err != nil {
+			t.Fatalf("Abs: %v", err)
+		}
+		if opts.historyDir != want {
+			t.Fatalf("historyDir = %q, want %q", opts.historyDir, want)
+		}
+	})
+}
+
+func TestEmitReportAutoBaselineBeforeRetain(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "result.json")
+	histDir := filepath.Join(dir, "hist")
+	oldCost := 1.0
+	if _, err := history.Retain(histDir, "e", summary.Report{
+		PassRate:   1,
+		AvgCostUSD: &oldCost,
+	}); err != nil {
+		t.Fatalf("seed history: %v", err)
+	}
+
+	opts, err := resolveReportOpts("e", histDir, false, "", false)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	newCost := 3.0
+	var buf bytes.Buffer
+	if err := emitReport(&buf, outPath, summary.Report{
+		PassRate:   1,
+		AvgCostUSD: &newCost,
+	}, opts); err != nil {
+		t.Fatalf("emitReport: %v", err)
+	}
+	if !strings.Contains(buf.String(), "1 → 3") {
+		t.Fatalf("expected delta against prior latest, got %q", buf.String())
 	}
 }
