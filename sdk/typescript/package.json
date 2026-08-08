@@ -12,10 +12,13 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build && npm test",
     "test": "tsc -p tsconfig.test.json && node --test 'dist-test/test/**/*.test.js'"
   },
   "engines": {
@@ -27,6 +30,25 @@
   "devDependencies": {
     "@types/node": "^22.13.10",
     "typescript": "^5.8.2"
+  },
+  "keywords": [
+    "skilleval",
+    "agent",
+    "skills",
+    "eval",
+    "testing"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daniel-walters/skilleval.git",
+    "directory": "sdk/typescript"
+  },
+  "homepage": "https://github.com/daniel-walters/skilleval/tree/main/sdk/typescript#readme",
+  "bugs": {
+    "url": "https://github.com/daniel-walters/skilleval/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT"
 }
