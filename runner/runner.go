@@ -178,7 +178,7 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 
 	costUSD := obs.CostUSD
 	if costUSD == nil {
-		costUSD = cost.USD(opts.Model, obs.Usage)
+		costUSD = cost.USD(cost.ProviderForRunner(agent.RunnerID()), opts.Model, obs.Usage)
 	}
 
 	r := &result.Result{

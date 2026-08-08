@@ -298,6 +298,45 @@ func TestRunUnknownModelCostNil(t *testing.T) {
 	}
 }
 
+func TestRunClaudeDoesNotUseCursorRates(t *testing.T) {
+	dir := t.TempDir()
+	setupEval(t, dir)
+
+	agent := &fakeAgent{
+		runnerID: "claude",
+		obs: runner.AgentObservables{
+			ID:     "run_claude_no_cost",
+			Status: result.StatusFinished,
+			Usage: result.Usage{
+				InputTokens:  100_000,
+				OutputTokens: 5_000,
+				TotalTokens:  105_000,
+			},
+			// No CostUSD: fallback must not hit the Cursor catalog.
+		},
+	}
+
+	ev, err := eval.Load(filepath.Join(dir, "eval.yaml"))
+	if err != nil {
+		t.Fatalf("eval.Load: %v", err)
+	}
+	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+		Model: "composer-2.5",
+		Agent: agent,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(workspace) }()
+
+	if r.Eval.Runner != "claude" {
+		t.Fatalf("runner = %q, want claude", r.Eval.Runner)
+	}
+	if r.Metrics.CostUSD != nil {
+		t.Fatalf("costUSD = %v, want nil (no Cursor rate leak)", *r.Metrics.CostUSD)
+	}
+}
+
 func TestRunErrorStatus(t *testing.T) {
 	dir := t.TempDir()
 	setupEval(t, dir)
