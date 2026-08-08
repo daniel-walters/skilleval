@@ -14,7 +14,7 @@ Core is Go. TypeScript authors can use the in-repo client at [`sdk/typescript`](
 | Single-eval CLI (`run` / `compare`) | Suite discovery / directory of evals |
 | Multi-run batches, history, baseline compare | Model matrix in one invocation |
 | Native project MCP seeding | Interactive OAuth MCP in CI |
-| YAML evals + in-repo TypeScript client | Published npm package |
+| YAML evals + TypeScript client (`npm install skilleval`) | Bundled Go binary inside the npm package |
 | GitHub Release binaries + `go install` | Homebrew / apt |
 
 **Versioning:** CLI releases use semver tags (`v0.1.0`, …). Eval YAML and Result JSON stay on `schemaVersion: 1` until a breaking contract change; that bumps the schema number rather than silently changing meaning. Patch releases (`v0.1.x`) are for install, docs, and correctness fixes — not new product surface.
@@ -59,7 +59,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-That runs the [Release](.github/workflows/release.yml) workflow (GoReleaser), which publishes multi-platform archives and checksums to GitHub Releases.
+That runs the [Release](.github/workflows/release.yml) workflow (GoReleaser), which publishes multi-platform archives and checksums to GitHub Releases, and the [Publish npm](.github/workflows/publish-npm.yml) workflow, which publishes `sdk/typescript` as [`skilleval` on npm](https://www.npmjs.com/package/skilleval) (requires the `NPM_TOKEN` repository secret).
 
 ## Authoring an eval
 
@@ -124,21 +124,11 @@ Prerequisites beyond Install above:
 - Node.js 18+
 - `skilleval` on `PATH`, or `SKILLEVAL_BIN` pointing at the binary
 
-Install the package locally (not published to npm yet):
-
 ```bash
-cd sdk/typescript
-npm install
-npm run build
+npm install skilleval
 ```
 
-From another package:
-
-```bash
-npm install /path/to/skilleval/sdk/typescript
-```
-
-Credentials are unchanged — see [Credentials](#credentials) (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`).
+Requires the Go `skilleval` CLI on `PATH` (or `SKILLEVAL_BIN`). Credentials are unchanged — see [Credentials](#credentials) (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`).
 
 Minimal `run` + `expect` equivalent to the refactor-helper YAML:
 
