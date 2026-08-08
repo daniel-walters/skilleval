@@ -23,8 +23,6 @@ Ship skills with the same confidence you ship code.
 
 ---
 
-
-
 ## Install
 
 ```bash
@@ -35,12 +33,10 @@ That gives you the typed client and a platform `skilleval` binary. Node.js 18+.
 
 Credentials for live runs (cwd `.env` is loaded automatically; process env wins):
 
-
 | Runner                      | Env                                           |
 | --------------------------- | --------------------------------------------- |
 | Cursor (default)            | `CURSOR_API_KEY`                              |
 | Claude (`runner: "claude"`) | `ANTHROPIC_API_KEY` (or local `claude login`) |
-
 
 ```bash
 echo 'CURSOR_API_KEY=...' > .env
@@ -49,8 +45,6 @@ echo 'CURSOR_API_KEY=...' > .env
 Prefer a standalone binary? Grab one from [GitHub Releases](https://github.com/daniel-walters/skilleval/releases), or `go install github.com/daniel-walters/skilleval/cmd/skilleval@v0.1.0`.
 
 ---
-
-
 
 ## Write an eval
 
@@ -63,8 +57,6 @@ my-eval/
   fixtures/my-skill/   # optional; copied into the attempt workspace
   mcp.json             # optional; native MCP config
 ```
-
-
 
 ### TypeScript
 
@@ -89,8 +81,14 @@ expect(result).turns.toBeLessThanOrEqual(15);
 expect(result).costUSD.toBeLessThanOrEqual(1);
 expect(result).toolsUsed.toInclude("read", "edit").not.toInclude("web");
 expect(result).skills.activated.toInclude("refactor-helper");
-expect(result, workspace).file("src/foo.go").toHaveBeenModified().toContain(/func Foo/);
-expect(result, workspace).file("src/new.go").toHaveBeenCreated().toContain("package demo");
+expect(result, workspace)
+  .file("src/foo.go")
+  .toHaveBeenModified()
+  .toContain(/func Foo/);
+expect(result, workspace)
+  .file("src/new.go")
+  .toHaveBeenCreated()
+  .toContain("package demo");
 expect(result, workspace).file("src/gone.go").toHaveBeenDeleted();
 expect(result).finalMessage.toMatch(/Refactor/);
 ```
@@ -121,8 +119,6 @@ import { loadEval, run, expect } from "@danielwaltersdev/skilleval";
 const ev = await loadEval("./eval.yaml");
 const { result, workspace } = await run(ev, { model: "composer-2.5" });
 ```
-
-
 
 ### YAML
 
@@ -166,14 +162,11 @@ Paths in the YAML are relative to the YAML file. Complete examples: `[examples/r
 
 ---
 
-
-
 ## Assertions
 
 Same catalog whether you write TypeScript or YAML. String matches are a literal or a slash-delimited regex (`/pattern/`). File paths are workspace-relative; optional `status` is `created` | `modified` | `deleted`.
 
 Numeric bounds (`turns`, `durationMs`, `toolCalls`, `costUSD`, and `usage.*Tokens`):
-
 
 | Bound                            | Meaning         |
 | -------------------------------- | --------------- |
@@ -182,7 +175,6 @@ Numeric bounds (`turns`, `durationMs`, `toolCalls`, `costUSD`, and `usage.*Token
 | `gt` / `toBeGreaterThan`         | actual > bound  |
 | `lt` / `toBeLessThan`            | actual < bound  |
 | `eq` / `toBeEqual`               | actual == bound |
-
 
 `toolsUsed` and `skills.activated` support include / exclude membership. Nil `costUSD` fails any cost bound.
 
@@ -194,21 +186,16 @@ Eval and Result JSON use `schemaVersion: 1` — bumps only on a breaking contrac
 
 ---
 
-
-
 ## MCP
 
 Pass a native MCP JSON file via `mcp` (TypeScript `run({ mcp: "…" })` or YAML `mcp:`). It’s seeded into each attempt workspace:
-
 
 | Runner | Seeded path        |
 | ------ | ------------------ |
 | Cursor | `.cursor/mcp.json` |
 | Claude | `.mcp.json`        |
 
-
 Both runners load project MCP only, so host/global MCP does not leak in. Put stdio server scripts under `input` so paths resolve inside the workspace. Example: `[examples/mcp-ping/](examples/mcp-ping/)`.
-
 
 | Bucket                          | Local           | CI               |
 | ------------------------------- | --------------- | ---------------- |
@@ -216,14 +203,11 @@ Both runners load project MCP only, so host/global MCP does not leak in. Put std
 | Env / token (`env` / `headers`) | ✓ if env set    | ✓ via CI secrets |
 | Interactive OAuth               | Not automatable | Not supported    |
 
-
 Interpolation: Cursor `${env:NAME}`, Claude `${VAR}`. Do not commit secrets in fixtures.
 
 `toolsUsed` **naming** for MCP differs by runner — Cursor uses `mcp`; Claude uses `mcp__<server>__<tool>`. Prefer runner-specific expects when asserting MCP tool names.
 
 ---
-
-
 
 ## Multi-run batches
 
@@ -250,8 +234,6 @@ Each attempt gets its own Result. With `attempts > 1`, the CLI also writes `resu
 
 ---
 
-
-
 ## History and comparison
 
 By default, runs retain summaries under `.skilleval/history/<eval-name>/` and compare against the prior `latest.json` when one exists. `.skilleval/` is gitignored. On a TTY (or with `FORCE_COLOR`), `PASS`/`FAIL` and polarity-aware baseline deltas are colored green/red; set `NO_COLOR` to disable.
@@ -268,10 +250,7 @@ In CI, upload `*-summary.json` as an artifact; on the next job, download the pri
 
 ---
 
-
-
 ## What’s in v0.1
-
 
 | In scope                                             | Not yet                            |
 | ---------------------------------------------------- | ---------------------------------- |
@@ -281,23 +260,18 @@ In CI, upload `*-summary.json` as an artifact; on the next job, download the pri
 | Native project MCP seeding                           | Interactive OAuth MCP in CI        |
 | npm platform binaries; GitHub Release / `go install` | Homebrew / apt                     |
 
-
-
-
 ## Roadmap
 
 - **Skills for authoring evals** — agent skills that help write `eval.ts` / expects against the shared catalog
 - **More providers** — Gemini, Codex, and OpenCode runners alongside Cursor and Claude
+- **SDKs in more languages** - Go, Python
 - **CI integration** — first-class GitHub Actions helpers (install, run, baseline artifact wiring) beyond today’s manual summary upload pattern
 - **YAML suite discovery** — discover and run many YAML evals like script discovery already does
 - **Model matrix** — one invocation across several models with aggregated compare
 
 ---
 
-
-
 ## Docs
-
 
 | Doc                                                  | Audience                                              |
 | ---------------------------------------------------- | ----------------------------------------------------- |
@@ -305,9 +279,6 @@ In CI, upload `*-summary.json` as an artifact; on the next job, download the pri
 | [docs/releasing.md](docs/releasing.md)               | Cutting CLI + npm releases                            |
 | [docs/development.md](docs/development.md)           | Building from source, CI, SDK pins, rate catalog sync |
 | [docs/adrs/](docs/adrs/)                             | Architecture decisions                                |
-
-
-
 
 ## License
 
