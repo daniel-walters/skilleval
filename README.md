@@ -4,7 +4,7 @@ A testing framework for agent skills (`SKILL.md`).
 
 Run a skill against a prompt and fixtures, capture what happened, and check deterministic expectations — tools used, turns, cost, file changes, and similar observables. Built so skill behavior can be evaluated without a second judging model.
 
-Core is Go; language SDKs may come later for writing tests in the ecosystem you prefer.
+Core is Go. TypeScript authors can use the in-repo client at [`sdk/typescript`](sdk/typescript) (`run` + typed `expect`) over the same CLI and expect catalog.
 
 ## Install
 
@@ -73,7 +73,75 @@ File expects use workspace-relative paths. Optional `status` is one of `created`
 
 Nil `costUSD` on the Result fails any set cost bound. Existing max-only evals keep working.
 
-See [`examples/refactor-helper/eval.yaml`](examples/refactor-helper/eval.yaml) for a complete document, or [`examples/mcp-ping/eval.yaml`](examples/mcp-ping/eval.yaml) for an MCP-dependent skill.
+See [`examples/refactor-helper/eval.yaml`](examples/refactor-helper/eval.yaml) (or the TypeScript twin [`eval.ts`](examples/refactor-helper/eval.ts)) for a complete document, or [`examples/mcp-ping/eval.yaml`](examples/mcp-ping/eval.yaml) for an MCP-dependent skill.
+
+### TypeScript
+
+YAML remains the CLI authoring path. The TypeScript package is the typed alternative: same Go CLI under the hood, same expect catalog, IntelliSense on matchers.
+
+Prerequisites beyond Install above:
+
+- Node.js 18+
+- `skilleval` on `PATH`, or `SKILLEVAL_BIN` pointing at the binary
+
+Install the package locally (not published to npm yet):
+
+```bash
+cd sdk/typescript
+npm install
+npm run build
+```
+
+From another package:
+
+```bash
+npm install /path/to/skilleval/sdk/typescript
+```
+
+Credentials are unchanged — see [Credentials](#credentials) (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`).
+
+Minimal `run` + `expect` equivalent to the refactor-helper YAML:
+
+```ts
+import { run, expect } from "skilleval";
+
+const { result, workspace } = await run({
+  name: "refactor-helper",
+  prompt: `Use the refactor-helper skill on this package:
+
+1. Refactor src/foo.go for clarity (simplify Foo; keep package demo and the Foo name).
+2. Extract a small helper into a new file src/new.go (e.g. a greetPrefix helper used by Foo).
+3. Delete src/gone.go — it is obsolete legacy code.
+
+Do all three: modify foo.go, create new.go, delete gone.go.`,
+  skill: "./skills/refactor-helper",
+  input: "./fixtures/refactor-helper",
+  model: process.env.MODEL!,
+});
+
+expect(result).turns.toBeLessThanOrEqual(15);
+expect(result).costUSD.toBeLessThanOrEqual(1);
+expect(result).toolsUsed.toInclude("read", "edit").not.toInclude("web");
+expect(result).skills.activated.toInclude("refactor-helper");
+expect(result, workspace).file("src/foo.go").toHaveBeenModified().toContain(/func Foo/);
+expect(result, workspace).file("src/new.go").toHaveBeenCreated().toContain("package demo");
+expect(result, workspace).file("src/gone.go").toHaveBeenDeleted();
+expect(result).finalMessage.toMatch(/Refactor/);
+```
+
+Full worked example: [`examples/refactor-helper/eval.ts`](examples/refactor-helper/eval.ts).
+
+You can also keep YAML for the prompt/skill/input and assert in TypeScript:
+
+```ts
+import { loadEval, run, expect } from "skilleval";
+
+const ev = await loadEval("./eval.yaml");
+const { result, workspace } = await run(ev, { model: process.env.MODEL! });
+// expect(result, workspace)…
+```
+
+Matcher namespaces (`turns` / `costUSD`, `toolsUsed`, `skills.activated`, `file`, `finalMessage`) are documented in [`sdk/typescript/README.md`](sdk/typescript/README.md).
 
 ### MCP
 
