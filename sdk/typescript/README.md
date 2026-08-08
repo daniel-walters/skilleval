@@ -7,8 +7,7 @@ YAML remains valid CLI authoring; this package is the typed alternative. Root au
 ## Prerequisites
 
 - Node.js 18+
-- Node.js 18+
-- Runner credentials (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`) and `MODEL` in the **process** environment — TypeScript `run()` does not load `.env` (the Go CLI does when invoked directly)
+- Runner credentials (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`) in the process environment or a cwd `.env` — `run()` loads `.env` the same as the Go CLI (process env wins). Put `model` on the `run({ … })` call (or pass `--model` to the CLI).
 
 ## Install
 
