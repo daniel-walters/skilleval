@@ -341,3 +341,7 @@ go run ./cmd/ratesync -write
 ```
 
 When Cursor adds a model name that is not in `cursor_aliases.json`, add the display name → `--model` id mapping there, then re-run the sync (or wait for the next scheduled job).
+
+## License
+
+[MIT](LICENSE)
