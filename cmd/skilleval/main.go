@@ -17,6 +17,9 @@ import (
 	"github.com/daniel-walters/skilleval/summary"
 )
 
+// version is set at link time via -ldflags "-X main.version=…".
+var version = "dev"
+
 func main() {
 	if err := loadDotEnv(".env"); err != nil {
 		fmt.Fprintf(os.Stderr, "skilleval: %v\n", err)
@@ -37,6 +40,8 @@ func main() {
 			fmt.Fprintf(os.Stderr, "skilleval: %v\n", err)
 			os.Exit(1)
 		}
+	case "version", "-version", "--version":
+		fmt.Println(version)
 	case "-h", "--help", "help":
 		printUsage()
 	default:
@@ -53,6 +58,7 @@ func printUsage() {
   skilleval run <eval.yaml> [--model ID] [--runner cursor|claude] [--out result.json]
                             [--history DIR] [--no-history] [--baseline summary.json] [--no-baseline]
   skilleval compare <current-summary.json> <baseline-summary.json>
+  skilleval version
 
 By default, run retains summaries under .skilleval/history and compares to
 that eval's latest.json when a prior run exists. Use --no-history / --no-baseline

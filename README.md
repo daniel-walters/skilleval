@@ -10,20 +10,43 @@ Core is Go. TypeScript authors can use the in-repo client at [`sdk/typescript`](
 
 Prerequisites:
 
-- **Go** (module path targets Go 1.26+)
-- **Node.js** (both runners embed a small Node helper)
+- **Node.js** (both runners embed a small Node helper; required at runtime)
+- **Go** (only if you install via `go install` or build from source; module path targets Go 1.26+)
 
-Install the CLI:
+### GitHub Release binary
+
+Download a prebuilt archive for your OS/arch from the [GitHub Releases](https://github.com/daniel-walters/skilleval/releases) page, extract `skilleval`, and put it on your `PATH`.
+
+Archives are named `skilleval_<version>_<os>_<arch>` (`.tar.gz`, or `.zip` on Windows) and ship with a `checksums.txt`.
+
+### go install
+
+With Go installed:
 
 ```bash
-go install github.com/daniel-walters/skilleval/cmd/skilleval@latest
+go install github.com/daniel-walters/skilleval/cmd/skilleval@v0.1.0
 ```
 
-Or build from a clone:
+Replace `v0.1.0` with a [release tag](https://github.com/daniel-walters/skilleval/releases). `@latest` also works once tags exist.
+
+### Build from a clone
 
 ```bash
 go build -o skilleval ./cmd/skilleval
 ```
+
+Confirm the binary with `skilleval version` (prints `dev` for local builds; release builds print the tag version).
+
+### Cutting a release
+
+On `main`, tag and push:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+That runs the [Release](.github/workflows/release.yml) workflow (GoReleaser), which publishes multi-platform archives and checksums to GitHub Releases.
 
 ## Authoring an eval
 
