@@ -27,6 +27,23 @@ func TestUSDComposerEstimate(t *testing.T) {
 	}
 }
 
+func TestUSDComposer2AliasMatches25(t *testing.T) {
+	usage := result.Usage{
+		InputTokens:      100_000,
+		OutputTokens:     5_000,
+		CacheReadTokens:  500_000,
+		CacheWriteTokens: 10_000,
+	}
+	a := cost.USD("cursor", "composer-2", usage)
+	b := cost.USD("cursor", "composer-2.5", usage)
+	if a == nil || b == nil {
+		t.Fatalf("USD = %v / %v, want estimates", a, b)
+	}
+	if *a != *b {
+		t.Fatalf("composer-2 = %g, composer-2.5 = %g, want equal", *a, *b)
+	}
+}
+
 func TestUSDUnknownModelNil(t *testing.T) {
 	got := cost.USD("cursor", "not-a-real-model", result.Usage{
 		InputTokens:  1000,
