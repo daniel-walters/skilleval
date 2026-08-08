@@ -273,7 +273,7 @@ function spawnCapture(
     });
     child.on("error", (err) => {
       reject(
-        new Error(`run: failed to spawn ${bin}: ${err.message} (${missingBinaryHint()})`),
+        new Error(`run: failed to spawn ${bin}: ${err.message} (${missingBinaryHint(bin)})`),
       );
     });
     child.on("close", (code) => {

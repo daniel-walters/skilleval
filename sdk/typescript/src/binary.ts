@@ -31,7 +31,10 @@ function binaryFileName(platform: string = process.platform): string {
 
 /**
  * Absolute path to the Go binary inside an installed platform package, or
- * undefined if that optionalDependency is missing / incomplete.
+ * undefined if that optionalDependency is not installed.
+ *
+ * Throws if the platform package resolves but the binary file is missing
+ * (incomplete install / bad publish) — does not fall through to PATH.
  */
 export function packagedBinaryPath(
   platform: string = process.platform,
@@ -41,17 +44,22 @@ export function packagedBinaryPath(
   if (!pkg) {
     return undefined;
   }
+  let pkgJson: string;
   try {
     const require = createRequire(import.meta.url);
-    const pkgJson = require.resolve(`${pkg}/package.json`);
-    const candidate = path.join(path.dirname(pkgJson), "bin", binaryFileName(platform));
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
+    pkgJson = require.resolve(`${pkg}/package.json`);
   } catch {
     // optionalDependency not installed
+    return undefined;
   }
-  return undefined;
+  const candidate = path.join(path.dirname(pkgJson), "bin", binaryFileName(platform));
+  if (!fs.existsSync(candidate)) {
+    throw new Error(
+      `platform package ${pkg} is installed but ${binaryFileName(platform)} is missing at ${candidate}; ` +
+        `reinstall @danielwaltersdev/skilleval`,
+    );
+  }
+  return candidate;
 }
 
 /**
@@ -71,8 +79,18 @@ export function resolveSkillevalBinary(): string {
   return "skilleval";
 }
 
-/** Human-readable hint when spawn fails and no packaged binary was found. */
-export function missingBinaryHint(): string {
+/**
+ * Human-readable hint when spawn of `resolvedBin` fails.
+ * Pass the path actually passed to spawn (from `resolveSkillevalBinary`).
+ */
+export function missingBinaryHint(resolvedBin: string): string {
+  const fromEnv = process.env.SKILLEVAL_BIN?.trim();
+  if (fromEnv && resolvedBin === fromEnv) {
+    return (
+      `SKILLEVAL_BIN=${fromEnv} could not be executed; ` +
+      `check that the file exists and is executable`
+    );
+  }
   const pkg = platformPackageForHost();
   if (!pkg) {
     return (

@@ -18,7 +18,7 @@ const child = spawn(bin, args, {
 
 child.on("error", (err) => {
   const detail = err instanceof Error ? err.message : String(err);
-  console.error(`skilleval: failed to spawn ${bin}: ${detail} (${missingBinaryHint()})`);
+  console.error(`skilleval: failed to spawn ${bin}: ${detail} (${missingBinaryHint(bin)})`);
   process.exit(1);
 });
 
