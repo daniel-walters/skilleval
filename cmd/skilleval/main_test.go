@@ -12,6 +12,12 @@ import (
 	"github.com/daniel-walters/skilleval/summary"
 )
 
+func TestVersionDefault(t *testing.T) {
+	if version != "dev" {
+		t.Fatalf("version = %q, want %q", version, "dev")
+	}
+}
+
 func TestSplitFlagsAndPositionals(t *testing.T) {
 	tests := []struct {
 		name      string
