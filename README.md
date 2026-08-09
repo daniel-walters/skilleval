@@ -1,8 +1,8 @@
 # skilleval
 
-**Deterministic evals for agent skills.**
+**Agent skills are prompts, not code — and there's no compiler to catch a broken one.**
 
-Run a skill against a real agent, then assert on deterministic observables — tools, files, turns, cost, final message. No LLM-as-judge.
+Solo, that means regressions slip through until a user hits them. On a team, it's worse: someone tweaks a shared skill, and review has nothing to go on but read-through and hope. skilleval runs the skill against a real agent and checks deterministic observables — tools used, files changed, turns taken, cost, final message — so a change is judged on evidence, not guesswork.
 
 ```ts
 import { run, expect } from "@danielwaltersdev/skilleval";
@@ -21,6 +21,8 @@ expect(result).costUSD.toBeLessThanOrEqual(1);
 
 Ship skills with the same confidence you ship code.
 
+![Baseline compare](docs/demo-compare.gif)
+
 ---
 
 ## Install
@@ -33,10 +35,12 @@ That gives you the typed client and a platform `skilleval` binary. Node.js 18+.
 
 Credentials for live runs (cwd `.env` is loaded automatically; process env wins):
 
+
 | Runner                      | Env                                           |
 | --------------------------- | --------------------------------------------- |
 | Cursor (default)            | `CURSOR_API_KEY`                              |
 | Claude (`runner: "claude"`) | `ANTHROPIC_API_KEY` (or local `claude login`) |
+
 
 ```bash
 echo 'CURSOR_API_KEY=...' > .env
@@ -45,6 +49,8 @@ echo 'CURSOR_API_KEY=...' > .env
 Prefer a standalone binary? Grab one from [GitHub Releases](https://github.com/daniel-walters/skilleval/releases), or `go install github.com/daniel-walters/skilleval/cmd/skilleval@v0.1.0`.
 
 ---
+
+
 
 ## Write an eval
 
@@ -57,6 +63,8 @@ my-eval/
   fixtures/my-skill/   # optional; copied into the attempt workspace
   mcp.json             # optional; native MCP config
 ```
+
+
 
 ### TypeScript
 
@@ -120,6 +128,8 @@ const ev = await loadEval("./eval.yaml");
 const { result, workspace } = await run(ev, { model: "composer-2.5" });
 ```
 
+
+
 ### YAML
 
 ```yaml
@@ -162,11 +172,14 @@ Paths in the YAML are relative to the YAML file. Complete examples: `[examples/r
 
 ---
 
+
+
 ## Assertions
 
 Same catalog whether you write TypeScript or YAML. String matches are a literal or a slash-delimited regex (`/pattern/`). File paths are workspace-relative; optional `status` is `created` | `modified` | `deleted`.
 
 Numeric bounds (`turns`, `durationMs`, `toolCalls`, `costUSD`, and `usage.*Tokens`):
+
 
 | Bound                            | Meaning         |
 | -------------------------------- | --------------- |
@@ -175,6 +188,7 @@ Numeric bounds (`turns`, `durationMs`, `toolCalls`, `costUSD`, and `usage.*Token
 | `gt` / `toBeGreaterThan`         | actual > bound  |
 | `lt` / `toBeLessThan`            | actual < bound  |
 | `eq` / `toBeEqual`               | actual == bound |
+
 
 `toolsUsed` and `skills.activated` support include / exclude membership. Nil `costUSD` fails any cost bound.
 
@@ -186,16 +200,21 @@ Eval and Result JSON use `schemaVersion: 1` — bumps only on a breaking contrac
 
 ---
 
+
+
 ## MCP
 
 Pass a native MCP JSON file via `mcp` (TypeScript `run({ mcp: "…" })` or YAML `mcp:`). It’s seeded into each attempt workspace:
+
 
 | Runner | Seeded path        |
 | ------ | ------------------ |
 | Cursor | `.cursor/mcp.json` |
 | Claude | `.mcp.json`        |
 
+
 Both runners load project MCP only, so host/global MCP does not leak in. Put stdio server scripts under `input` so paths resolve inside the workspace. Example: `[examples/mcp-ping/](examples/mcp-ping/)`.
+
 
 | Bucket                          | Local           | CI               |
 | ------------------------------- | --------------- | ---------------- |
@@ -203,11 +222,14 @@ Both runners load project MCP only, so host/global MCP does not leak in. Put std
 | Env / token (`env` / `headers`) | ✓ if env set    | ✓ via CI secrets |
 | Interactive OAuth               | Not automatable | Not supported    |
 
+
 Interpolation: Cursor `${env:NAME}`, Claude `${VAR}`. Do not commit secrets in fixtures.
 
 `toolsUsed` **naming** for MCP differs by runner — Cursor uses `mcp`; Claude uses `mcp__<server>__<tool>`. Prefer runner-specific expects when asserting MCP tool names.
 
 ---
+
+
 
 ## Multi-run batches
 
@@ -234,6 +256,8 @@ Each attempt gets its own Result. With `attempts > 1`, the CLI also writes `resu
 
 ---
 
+
+
 ## History and comparison
 
 By default, runs retain summaries under `.skilleval/history/<eval-name>/` and compare against the prior `latest.json` when one exists. `.skilleval/` is gitignored. On a TTY (or with `FORCE_COLOR`), `PASS`/`FAIL` and polarity-aware baseline deltas are colored green/red; set `NO_COLOR` to disable.
@@ -250,7 +274,10 @@ In CI, upload `*-summary.json` as an artifact; on the next job, download the pri
 
 ---
 
+
+
 ## What’s in v0.1
+
 
 | In scope                                             | Not yet                            |
 | ---------------------------------------------------- | ---------------------------------- |
@@ -259,6 +286,9 @@ In CI, upload `*-summary.json` as an artifact; on the next job, download the pri
 | Multi-run batches, history, baseline compare         | Model matrix in one invocation     |
 | Native project MCP seeding                           | Interactive OAuth MCP in CI        |
 | npm platform binaries; GitHub Release / `go install` | Homebrew / apt                     |
+
+
+
 
 ## Roadmap
 
@@ -271,7 +301,10 @@ In CI, upload `*-summary.json` as an artifact; on the next job, download the pri
 
 ---
 
+
+
 ## Docs
+
 
 | Doc                                                  | Audience                                              |
 | ---------------------------------------------------- | ----------------------------------------------------- |
