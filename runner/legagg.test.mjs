@@ -5,6 +5,8 @@ import {
   addUsage,
   addCost,
   userMessages,
+  preferConversationTranscript,
+  composeLocalFollowUpPrompt,
 } from "./legagg.mjs";
 
 describe("legagg", () => {
@@ -40,5 +42,23 @@ describe("legagg", () => {
     assert.deepEqual(userMessages("hi", []), ["hi"]);
     assert.deepEqual(userMessages("hi", ["yes", "go"]), ["hi", "yes", "go"]);
     assert.deepEqual(userMessages("hi", ["yes", "", "go"]), ["hi", "yes", "go"]);
+  });
+
+  it("prefers conversation transcript only for single-leg attempts", () => {
+    assert.equal(preferConversationTranscript(1), true);
+    assert.equal(preferConversationTranscript(0), true);
+    assert.equal(preferConversationTranscript(2), false);
+  });
+
+  it("composes local follow-up prompts with prior transcript", () => {
+    const prompt = composeLocalFollowUpPrompt("yes", [
+      { type: "user", text: "clean up" },
+      { type: "assistant", text: "Delete obsolete.txt?" },
+      { type: "tool_call", name: "read", args: { path: "obsolete.txt" } },
+    ]);
+    assert.match(prompt, /User: clean up/);
+    assert.match(prompt, /Assistant: Delete obsolete\.txt\?/);
+    assert.match(prompt, /Tool: read path=obsolete\.txt/);
+    assert.match(prompt, /Next user message:\nyes$/);
   });
 });

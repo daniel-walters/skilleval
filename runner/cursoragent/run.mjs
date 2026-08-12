@@ -23,7 +23,8 @@ const {
   eventsFromConversation,
   finalizeLogEvents,
 } = await import("./agentlog.mjs");
-const { emptyUsage, addUsage, userMessages } = await import("./legagg.mjs");
+const { emptyUsage, addUsage, userMessages, preferConversationTranscript, composeLocalFollowUpPrompt } =
+  await import("./legagg.mjs");
 
 function parseArgs(argv) {
   const out = { cwd: "", model: "", prompt: "", replies: [] };
@@ -151,9 +152,14 @@ async function main() {
 
     for (let i = 0; i < messages.length; i++) {
       const text = messages[i];
+      // Agent log keeps the clean reply; local SDK may need history in send().
       streamLogEvents.push(userEvent(text));
+      const sendText =
+        i === 0
+          ? text
+          : composeLocalFollowUpPrompt(text, streamLogEvents.slice(0, -1));
 
-      const run = await agent.send(text);
+      const run = await agent.send(sendText);
       lastRun = run;
       for await (const event of run.stream()) {
         if (event.type === "tool_call") {
@@ -183,8 +189,13 @@ async function main() {
 
     let conversationTurns = streamTurns;
     let logEvents = streamLogEvents;
+    // Each Cursor Run owns one prompt's conversation. Multi-leg attempts must
+    // keep stream-aggregated turns/log; lastRun.conversation() would truncate.
     try {
-      if (lastRun?.supports?.("conversation")) {
+      if (
+        preferConversationTranscript(messages.length) &&
+        lastRun?.supports?.("conversation")
+      ) {
         const conv = await lastRun.conversation();
         conversationTurns = countTurns(streamTurns, conv);
         const fromConv = eventsFromConversation(conv, prompt, cwd);
