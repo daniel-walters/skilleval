@@ -93,6 +93,7 @@ expect(result).toolsUsed.toInclude("read", "edit").not.toInclude("web");
 expect(result).toolCalls.named("edit").toBeGreaterThanOrEqual(1);
 expect(result).toolCalls.toIncludeInOrder([
   { name: "edit", args: { path: "src/foo.go" } },
+  { name: "shell", args: { command: /git commit/ } },
 ]);
 expect(result).skills.activated.toInclude("refactor-helper");
 expect(result, workspace)
