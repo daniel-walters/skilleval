@@ -27,6 +27,7 @@ export class FileMatchers {
   toHaveStatus(status: FileStatus): this {
     if (!this.outcome) {
       fail(`${this.prefix}.status`, "path missing from outcomes.files");
+      return this;
     }
     if (this.outcome.status !== status) {
       fail(
@@ -62,11 +63,16 @@ export class FileMatchers {
   private assertContent(expected: StringOrRegexp, kind: "contains" | "equals"): void {
     if (!this.outcome) {
       fail(this.prefix, "path missing from outcomes.files");
+      return;
     }
     if (this.outcome.status === "deleted") {
       fail(this.prefix, "content expects cannot be checked for a deleted file");
+      return;
     }
     const body = readWorkspaceFile(this.workspace, this.relPath);
+    if (body === undefined) {
+      return;
+    }
     if (kind === "contains") {
       if (!matchContains(body, expected)) {
         const reason = isRegex(expected)
@@ -85,12 +91,17 @@ export class FileMatchers {
   }
 }
 
-function readWorkspaceFile(workspace: string | undefined, rel: string): string {
+/** Read workspace file; soft-fails and returns undefined when unreadable. */
+function readWorkspaceFile(
+  workspace: string | undefined,
+  rel: string,
+): string | undefined {
   if (!workspace) {
     fail(
       `files[${rel}]`,
       "workspace is required for file content checks",
     );
+    return undefined;
   }
   let full: string;
   try {
@@ -98,12 +109,14 @@ function readWorkspaceFile(workspace: string | undefined, rel: string): string {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     fail(`files[${rel}]`, msg);
+    return undefined;
   }
   try {
     return fs.readFileSync(full, "utf8");
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     fail(`files[${rel}]`, `read ${rel}: ${msg}`);
+    return undefined;
   }
 }
 

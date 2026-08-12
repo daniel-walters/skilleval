@@ -74,6 +74,8 @@ export class ToolCallsMatchers {
             ? `no matching tool call for order step ${JSON.stringify(step.name)} with given args`
             : `no matching tool call for order step ${JSON.stringify(step.name)}`;
         fail(`toolCalls.order[${stepIdx}]`, reason);
+        // Match Go: stop after the first unmatched order step.
+        return this;
       }
     }
     return this;

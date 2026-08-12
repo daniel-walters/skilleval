@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
 
 import { expect, ExpectError } from "../src/expect.js";
 import type { Result } from "../src/result.js";
@@ -35,9 +35,21 @@ function workspace(name: string): string {
   return path.join(fixtures, name, "workspace");
 }
 
+afterEach(() => {
+  expect.clear();
+});
+
 function assertFail(fn: () => void, pathPrefix: string): ExpectError {
+  expect.clear();
   try {
     fn();
+  } catch (err) {
+    assert.ok(err instanceof ExpectError, `got ${String(err)}`);
+    assert.equal(err.path, pathPrefix);
+    return err;
+  }
+  try {
+    expect.report();
     assert.fail("expected ExpectError");
   } catch (err) {
     assert.ok(err instanceof ExpectError, `got ${String(err)}`);
@@ -280,5 +292,49 @@ describe("expect finalMessage", () => {
   it("fails regex contains", () => {
     const r = loadResult("fail-final-message-regex");
     assertFail(() => expect(r).finalMessage.toMatch(/SUCCESS/), "finalMessage.contains");
+  });
+});
+
+describe("expect collects all failures", () => {
+  it("reports every failure across sequential expect calls", () => {
+    const r = loadResult("fail-many");
+    expect(r).turns.toBeLessThanOrEqual(1);
+    expect(r).costUSD.toBeLessThanOrEqual(0.1);
+    expect(r).finalMessage.toContain("Done");
+    const err = (() => {
+      try {
+        expect.report();
+        assert.fail("expected ExpectError");
+      } catch (e) {
+        assert.ok(e instanceof ExpectError);
+        return e;
+      }
+    })();
+    assert.deepEqual(
+      err.failures.map((f) => f.path),
+      ["turns.max", "costUSD.max", "finalMessage.contains"],
+    );
+    assert.match(err.message, /turns\.max:/);
+    assert.match(err.message, /costUSD\.max:/);
+    assert.match(err.message, /finalMessage\.contains:/);
+  });
+
+  it("reports every missing tool in one toInclude call", () => {
+    const r = loadResult("fail-tools");
+    expect(r).toolsUsed.toInclude("edit", "shell");
+    const err = (() => {
+      try {
+        expect.report();
+        assert.fail("expected ExpectError");
+      } catch (e) {
+        assert.ok(e instanceof ExpectError);
+        return e;
+      }
+    })();
+    assert.equal(err.failures.length, 2);
+    assert.equal(err.failures[0]!.path, "toolsUsed.includes");
+    assert.equal(err.failures[1]!.path, "toolsUsed.includes");
+    assert.match(err.failures[0]!.reason, /edit/);
+    assert.match(err.failures[1]!.reason, /shell/);
   });
 });
