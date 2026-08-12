@@ -211,7 +211,7 @@ Numeric bounds (`turns`, `durationMs`, `toolCalls`, `costUSD`, and `usage.*Token
 - **`named.<tool>`** — count bounds for one tool name (`named.edit.min` / `toolCalls.named("edit").toBeGreaterThanOrEqual(1)`)
 - **`order` / `toIncludeInOrder`** — ordered **subsequence** (gaps allowed before/between/after). Each step has `name` and optional `args`. YAML arg checks use `contains` / `equals` (literal or `/regex/`). In TypeScript, a string arg means equals and a `RegExp` means match.
 
-Result `metrics.toolCalls` entries may include lean pre-call `args` (normalized `path` and `command`; large bodies stripped). Claude `file_path` is mapped to `path`.
+Result `metrics.toolCalls` entries may include lean pre-call `args` (normalized `path` and `command`; large bodies stripped). Claude `file_path` is mapped to `path`, and `path` values under the attempt workspace are stored workspace-relative.
 
 When the harness omits `costUSD`, skilleval estimates it from `cost/rates.json`. Unknown or unpriced models leave `costUSD` nil.
 

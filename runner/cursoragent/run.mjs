@@ -49,11 +49,11 @@ function mapUsage(u) {
 }
 
 /** Record a tool_call stream event, coalescing start/complete for the same invocation. */
-function recordToolCall(toolCalls, toolsUsedSet, event) {
+function recordToolCall(toolCalls, toolsUsedSet, event, cwd) {
   const name = event.name ?? "unknown";
   const status = event.status ?? "completed";
   const callId = event.call_id;
-  const args = normalizeToolArgs(event.args);
+  const args = normalizeToolArgs(event.args, cwd);
   toolsUsedSet.add(name);
 
   if (callId) {
@@ -142,7 +142,7 @@ async function main() {
     const run = await agent.send(prompt);
     for await (const event of run.stream()) {
       if (event.type === "tool_call") {
-        recordToolCall(toolCalls, toolsUsedSet, event);
+        recordToolCall(toolCalls, toolsUsedSet, event, cwd);
         noteActivatedSkill(activatedSkills, event);
       } else if (event.type === "assistant") {
         turns += 1;

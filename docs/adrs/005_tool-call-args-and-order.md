@@ -10,7 +10,7 @@ Authors need to assert *how* a skill drove the agent — call order, per-tool co
 
 ## Decision
 
-1. **Capture lean pre-call `args`** on each `ToolCall` (schemaVersion 1, additive). Normalize Claude `file_path` → `path`; keep `command` and other small scalars; strip large bodies (`fileText`, `content`, `oldText`/`newText`, `old_string`/`new_string`, …).
+1. **Capture lean pre-call `args`** on each `ToolCall` (schemaVersion 1, additive). Normalize Claude `file_path` → `path`; relativize `path` against the attempt workspace cwd (forward slashes); keep `command` and other small scalars; strip large bodies (`fileText`, `content`, `oldText`/`newText`, `old_string`/`new_string`, …).
 2. **Order expects are ordered subsequences**, not exact full sequences: steps must appear in order with gaps allowed before/between/after (`toolCalls.order` / `toIncludeInOrder`).
 3. **Per-name counts** live under `toolCalls.named` alongside existing total bounds.
 4. **TS arg values** are `string` (equals) or `RegExp` (match); YAML keeps `contains` / `equals` like file/text expects.

@@ -99,7 +99,7 @@ async function main() {
           const name = block.name ?? "unknown";
           toolsUsedSet.add(name);
           const entry = { name, status: "completed" };
-          const args = normalizeToolArgs(block.input);
+          const args = normalizeToolArgs(block.input, cwd);
           if (args) entry.args = args;
           toolCalls.push(entry);
           if (name === "Skill") {
