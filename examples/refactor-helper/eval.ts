@@ -28,6 +28,10 @@ Do all three: modify foo.go, create new.go, delete gone.go.`,
 expect(result).turns.toBeLessThanOrEqual(15);
 expect(result).costUSD.toBeLessThanOrEqual(1);
 expect(result).toolsUsed.toInclude("read", "edit").not.toInclude("web");
+expect(result).toolCalls.named("edit").toBeGreaterThanOrEqual(1);
+expect(result).toolCalls.toIncludeInOrder([
+  { name: "edit", args: { path: "src/foo.go" } },
+]);
 expect(result).skills.activated.toInclude("refactor-helper");
 expect(result, workspace).file("src/foo.go").toHaveBeenModified().toContain(/func Foo/);
 expect(result, workspace).file("src/new.go").toHaveBeenCreated().toContain("package demo");
