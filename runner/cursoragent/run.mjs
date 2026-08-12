@@ -15,6 +15,14 @@ const { Agent, CursorAgentError } = await import("@cursor/sdk");
 const { countTurns } = await import("./turns.mjs");
 const { noteActivatedSkill } = await import("./skills.mjs");
 const { normalizeToolArgs } = await import("./toolargs.mjs");
+const {
+  makeLog,
+  userEvent,
+  errorEvent,
+  appendStreamEvent,
+  eventsFromConversation,
+  finalizeLogEvents,
+} = await import("./agentlog.mjs");
 
 function parseArgs(argv) {
   const out = { cwd: "", model: "", prompt: "" };
@@ -126,6 +134,7 @@ async function main() {
   const toolCalls = [];
   const toolsUsedSet = new Set();
   const activatedSkills = new Set();
+  const streamLogEvents = [userEvent(prompt)];
   let turns = 0;
 
   let agent;
@@ -144,24 +153,35 @@ async function main() {
       if (event.type === "tool_call") {
         recordToolCall(toolCalls, toolsUsedSet, event, cwd);
         noteActivatedSkill(activatedSkills, event);
+        appendStreamEvent(streamLogEvents, event, cwd);
       } else if (event.type === "assistant") {
         turns += 1;
+        appendStreamEvent(streamLogEvents, event, cwd);
       }
     }
 
     const result = await run.wait();
     let conversationTurns = turns;
+    let logEvents = streamLogEvents;
     try {
       if (run.supports?.("conversation")) {
         const conv = await run.conversation();
         conversationTurns = countTurns(turns, conv);
+        const fromConv = eventsFromConversation(conv, prompt, cwd);
+        if (fromConv) {
+          logEvents = fromConv;
+        }
       }
     } catch {
-      // keep stream-derived turns
+      // keep stream-derived turns and log
     }
 
     const runStatus = result.status ?? "finished";
     finalizeToolCalls(toolCalls, runStatus);
+
+    if (result.error?.message) {
+      logEvents.push(errorEvent(result.error.message));
+    }
 
     const out = {
       id: result.id ?? run.id ?? "",
@@ -174,6 +194,7 @@ async function main() {
       toolCalls: emitToolCalls(toolCalls),
       usage: mapUsage(result.usage),
       skills: { activated: [...activatedSkills] },
+      log: makeLog(finalizeLogEvents(logEvents, runStatus)),
     };
     process.stdout.write(JSON.stringify(out) + "\n");
   } catch (err) {
@@ -189,6 +210,7 @@ async function main() {
         toolCalls: [],
         usage: emptyUsage(),
         skills: { activated: [] },
+        log: makeLog([userEvent(prompt), errorEvent(err.message ?? String(err))]),
       };
       process.stdout.write(JSON.stringify(out) + "\n");
       return;

@@ -2,6 +2,7 @@ package runner_test
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"os"
 	"path/filepath"
@@ -90,7 +91,7 @@ func TestRunSeedsInputPlacesSkillAndDiffs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eval.Load: %v", err)
 	}
-	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+	out, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
 		Model:   "composer-2.5",
 		Attempt: 1,
 		Agent:   agent,
@@ -98,6 +99,7 @@ func TestRunSeedsInputPlacesSkillAndDiffs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	r, workspace := out.Result, out.Workspace
 	defer func() { _ = os.RemoveAll(workspace) }()
 
 	if agent.lastReq.Workspace != workspace {
@@ -151,6 +153,35 @@ func TestRunSeedsInputPlacesSkillAndDiffs(t *testing.T) {
 	}
 }
 
+func TestRunReturnsAgentLog(t *testing.T) {
+	dir := t.TempDir()
+	setupEval(t, dir)
+	log := json.RawMessage(`{"schemaVersion":1,"events":[{"type":"user","text":"Refactor src/foo.go"},{"type":"assistant","text":"done"}]}`)
+	agent := &fakeAgent{
+		obs: runner.AgentObservables{
+			ID:           "run_log",
+			Status:       result.StatusFinished,
+			FinalMessage: "done",
+			Log:          log,
+		},
+	}
+	ev, err := eval.Load(filepath.Join(dir, "eval.yaml"))
+	if err != nil {
+		t.Fatalf("eval.Load: %v", err)
+	}
+	out, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+		Model: "m",
+		Agent: agent,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(out.Workspace) }()
+	if string(out.AgentLog) != string(log) {
+		t.Fatalf("AgentLog = %s", out.AgentLog)
+	}
+}
+
 func TestRunSeedsMCP(t *testing.T) {
 	dir := t.TempDir()
 	setupEval(t, dir)
@@ -180,13 +211,14 @@ mcp: mcp.json
 	if err != nil {
 		t.Fatalf("eval.Load: %v", err)
 	}
-	r, workspace, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
+	out, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
 		Model: "m",
 		Agent: agent,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	r, workspace := out.Result, out.Workspace
 	defer func() { _ = os.RemoveAll(workspace) }()
 
 	got, err := os.ReadFile(filepath.Join(workspace, ".cursor", "mcp.json"))
@@ -247,13 +279,14 @@ func TestRunFileCreatedAndDeleted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eval.Load: %v", err)
 	}
-	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+	out, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
 		Model: "m",
 		Agent: agent,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	r, workspace := out.Result, out.Workspace
 	defer func() { _ = os.RemoveAll(workspace) }()
 
 	if r.Outcomes.Files["src/new.go"].Status != result.FileCreated {
@@ -284,13 +317,14 @@ func TestRunUnknownModelCostNil(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eval.Load: %v", err)
 	}
-	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+	out, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
 		Model: "not-a-real-model",
 		Agent: agent,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	r, workspace := out.Result, out.Workspace
 	defer func() { _ = os.RemoveAll(workspace) }()
 
 	if r.Metrics.CostUSD != nil {
@@ -319,13 +353,14 @@ func TestRunEstimatesCostForComposer2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eval.Load: %v", err)
 	}
-	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+	out, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
 		Model: "composer-2",
 		Agent: agent,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	r, workspace := out.Result, out.Workspace
 	defer func() { _ = os.RemoveAll(workspace) }()
 
 	if r.Eval.Model != "composer-2" {
@@ -362,13 +397,14 @@ func TestRunClaudeDoesNotUseCursorRates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eval.Load: %v", err)
 	}
-	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+	out, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
 		Model: "composer-2.5",
 		Agent: agent,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	r, workspace := out.Result, out.Workspace
 	defer func() { _ = os.RemoveAll(workspace) }()
 
 	if r.Eval.Runner != "claude" {
@@ -394,13 +430,14 @@ func TestRunErrorStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eval.Load: %v", err)
 	}
-	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+	out, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
 		Model: "m",
 		Agent: agent,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	r, workspace := out.Result, out.Workspace
 	defer func() { _ = os.RemoveAll(workspace) }()
 	if r.Status != result.StatusError || r.Error == nil || *r.Error != "boom" {
 		t.Fatalf("status/error = %s %v", r.Status, r.Error)
@@ -427,13 +464,14 @@ func TestRunUsesAgentCostUSD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eval.Load: %v", err)
 	}
-	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+	out, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
 		Model: "composer-2.5",
 		Agent: agent,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	r, workspace := out.Result, out.Workspace
 	defer func() { _ = os.RemoveAll(workspace) }()
 	if r.Metrics.CostUSD == nil || *r.Metrics.CostUSD != cost {
 		t.Fatalf("costUSD = %v, want %v", r.Metrics.CostUSD, cost)
@@ -474,13 +512,14 @@ process.stdout.write(JSON.stringify(out) + "\n");
 	}
 
 	agent := &runner.CursorAgent{HelperDir: helperDir}
-	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+	out, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
 		Model: "m",
 		Agent: agent,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	r, workspace := out.Result, out.Workspace
 	defer func() { _ = os.RemoveAll(workspace) }()
 	if r.ID != "from-helper" || r.FinalMessage != "hi" || r.Metrics.Usage.TotalTokens != 3 {
 		t.Fatalf("result = %+v", r)

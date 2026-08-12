@@ -130,13 +130,14 @@ process.stdout.write(JSON.stringify({
 		t.Fatal(err)
 	}
 	agent := &runner.ClaudeAgent{HelperDir: helperDir}
-	r, workspace, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
+	out, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
 		Model: "haiku",
 		Agent: agent,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	r, workspace := out.Result, out.Workspace
 	defer func() { _ = os.RemoveAll(workspace) }()
 
 	got, err := os.ReadFile(filepath.Join(workspace, ".mcp.json"))
@@ -184,13 +185,14 @@ process.stdout.write(JSON.stringify(out) + "\n");
 	}
 
 	agent := &runner.ClaudeAgent{HelperDir: helperDir}
-	r, workspace, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
+	out, err := runner.Run(context.Background(), ev, filepath.Join(dir, "eval.yaml"), runner.Options{
 		Model: "haiku",
 		Agent: agent,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	r, workspace := out.Result, out.Workspace
 	defer func() { _ = os.RemoveAll(workspace) }()
 
 	if r.Eval.Runner != "claude" {

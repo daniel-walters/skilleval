@@ -246,10 +246,10 @@ interface WroteLine {
   workspace: string;
 }
 
-/** Parse CLI stdout lines like: wrote <path> (status=finished workspace=/tmp/...) */
+/** Parse CLI stdout lines like: wrote <path> (status=finished workspace=/tmp/... [agentLog=...]) */
 export function parseWroteLines(stdout: string): WroteLine[] {
   const re =
-    /(?:attempt \d+\/\d+: )?wrote (.+?) \(status=\w+ workspace=(.+?)\)/g;
+    /(?:attempt \d+\/\d+: )?wrote (.+?) \(status=\w+ workspace=(\S+)(?: agentLog=\S+)?\)/g;
   const out: WroteLine[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(stdout)) !== null) {

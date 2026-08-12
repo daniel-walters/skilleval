@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -195,14 +196,19 @@ func runSingle(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, 
 	runOpts.Attempt = 1
 	ctx, cancel := attemptContext(timeout)
 	defer cancel()
-	r, workspace, err := runner.Run(ctx, ev, evalPath, runOpts)
+	out, err := runner.Run(ctx, ev, evalPath, runOpts)
 	if err != nil {
 		return err
 	}
+	r, workspace := out.Result, out.Workspace
 	if err := result.Write(outPath, r); err != nil {
 		return err
 	}
-	fmt.Printf("wrote %s (status=%s workspace=%s)\n", outPath, r.Status, workspace)
+	logPath := agentLogOutPath(outPath)
+	if err := writeAgentLog(logPath, out.AgentLog); err != nil {
+		return err
+	}
+	fmt.Printf("wrote %s (status=%s workspace=%s agentLog=%s)\n", outPath, r.Status, workspace, logPath)
 
 	v := checker.Check(r, ev.Expects, workspace)
 	if err := printVerdict(os.Stdout, v); err != nil {
@@ -229,7 +235,7 @@ func runMulti(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, o
 		attemptOpts.Attempt = i
 		attemptOpts.TotalAttempts = n
 		ctx, cancel := attemptContext(timeout)
-		r, workspace, err := runner.Run(ctx, ev, evalPath, attemptOpts)
+		out, err := runner.Run(ctx, ev, evalPath, attemptOpts)
 		cancel()
 		hb.Stop()
 		if err != nil {
@@ -238,11 +244,16 @@ func runMulti(ev *eval.Eval, evalPath, outPath string, runOpts runner.Options, o
 			continue
 		}
 
+		r, workspace := out.Result, out.Workspace
 		attemptPath := attemptOutPath(outPath, i, n)
 		if err := result.Write(attemptPath, r); err != nil {
 			return err
 		}
-		fmt.Printf("attempt %d/%d: wrote %s (status=%s workspace=%s)\n", i, n, attemptPath, r.Status, workspace)
+		logPath := agentLogOutPath(attemptPath)
+		if err := writeAgentLog(logPath, out.AgentLog); err != nil {
+			return err
+		}
+		fmt.Printf("attempt %d/%d: wrote %s (status=%s workspace=%s agentLog=%s)\n", i, n, attemptPath, r.Status, workspace, logPath)
 
 		v := checker.Check(r, ev.Expects, workspace)
 		if err := printVerdict(os.Stdout, v); err != nil {
@@ -366,6 +377,34 @@ func summaryOutPath(out string) string {
 	ext := filepath.Ext(out)
 	stem := strings.TrimSuffix(out, ext)
 	return stem + "-summary" + ext
+}
+
+// agentLogOutPath returns stem-agent-log.ext beside the result path.
+func agentLogOutPath(out string) string {
+	ext := filepath.Ext(out)
+	stem := strings.TrimSuffix(out, ext)
+	return stem + "-agent-log" + ext
+}
+
+// writeAgentLog writes the agent transcript sidecar as pretty JSON.
+// When log is empty, writes an empty events document.
+func writeAgentLog(path string, log json.RawMessage) error {
+	if len(log) == 0 {
+		log = json.RawMessage(`{"schemaVersion":1,"events":[]}`)
+	}
+	var v any
+	if err := json.Unmarshal(log, &v); err != nil {
+		return fmt.Errorf("agent log: decode: %w", err)
+	}
+	raw, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return fmt.Errorf("agent log: encode %s: %w", path, err)
+	}
+	raw = append(raw, '\n')
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		return fmt.Errorf("agent log: write %s: %w", path, err)
+	}
+	return nil
 }
 
 func printSummary(w io.Writer, rep summary.Report) error {

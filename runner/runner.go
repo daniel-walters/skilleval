@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -55,6 +56,15 @@ type AgentObservables struct {
 	Skills       result.Skills
 	// CostUSD, when set, is used for Result.metrics.costUSD instead of rates.json.
 	CostUSD *float64
+	// Log is the full agent transcript (sidecar JSON blob); not part of Result.
+	Log json.RawMessage
+}
+
+// RunOutput is one attempt: lean Result, workspace path, and agent log artefact bytes.
+type RunOutput struct {
+	Result    *result.Result
+	Workspace string
+	AgentLog  json.RawMessage
 }
 
 // Agent executes a prompt against a workspace and returns observables.
@@ -72,14 +82,14 @@ type Agent interface {
 	Run(ctx context.Context, req AgentRequest) (AgentObservables, error)
 }
 
-// Run executes one attempt for ev (loaded from evalPath) and returns the Result
-// plus the attempt workspace path. The workspace is left on disk for the caller.
-func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*result.Result, string, error) {
+// Run executes one attempt for ev (loaded from evalPath) and returns the Result,
+// workspace path, and agent log artefact. The workspace is left on disk for the caller.
+func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*RunOutput, error) {
 	if ev == nil {
-		return nil, "", fmt.Errorf("runner: eval is nil")
+		return nil, fmt.Errorf("runner: eval is nil")
 	}
 	if strings.TrimSpace(evalPath) == "" {
-		return nil, "", fmt.Errorf("runner: evalPath is required")
+		return nil, fmt.Errorf("runner: evalPath is required")
 	}
 
 	attempt := opts.Attempt
@@ -94,7 +104,7 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 	skillPath := eval.ResolvePath(evalPath, ev.Skill)
 	sk, err := skill.Load(skillPath)
 	if err != nil {
-		return nil, "", fmt.Errorf("runner: %w", err)
+		return nil, fmt.Errorf("runner: %w", err)
 	}
 
 	parent := opts.WorkDir
@@ -103,30 +113,34 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 	}
 	workspace, err := os.MkdirTemp(parent, "skilleval-*")
 	if err != nil {
-		return nil, "", fmt.Errorf("runner: create workspace: %w", err)
+		return nil, fmt.Errorf("runner: create workspace: %w", err)
+	}
+
+	fail := func(err error) (*RunOutput, error) {
+		return &RunOutput{Workspace: workspace}, err
 	}
 
 	if ev.Input != "" {
 		inputPath := eval.ResolvePath(evalPath, ev.Input)
 		if err := copyTree(inputPath, workspace); err != nil {
-			return nil, workspace, fmt.Errorf("runner: seed input: %w", err)
+			return fail(fmt.Errorf("runner: seed input: %w", err))
 		}
 	}
 
 	if err := agent.PrepareWorkspace(workspace, sk); err != nil {
-		return nil, workspace, fmt.Errorf("runner: place skill: %w", err)
+		return fail(fmt.Errorf("runner: place skill: %w", err))
 	}
 
 	if ev.MCP != "" {
 		mcpPath := eval.ResolvePath(evalPath, ev.MCP)
 		if err := agent.SeedMCP(workspace, mcpPath); err != nil {
-			return nil, workspace, fmt.Errorf("runner: seed mcp: %w", err)
+			return fail(fmt.Errorf("runner: seed mcp: %w", err))
 		}
 	}
 
 	before, err := snapshot(workspace, agent.IgnoreOutcomePath)
 	if err != nil {
-		return nil, workspace, fmt.Errorf("runner: snapshot: %w", err)
+		return fail(fmt.Errorf("runner: snapshot: %w", err))
 	}
 
 	startedAt := time.Now().UTC()
@@ -138,12 +152,12 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 	})
 	finishedAt := time.Now().UTC()
 	if err != nil {
-		return nil, workspace, fmt.Errorf("runner: agent: %w", err)
+		return fail(fmt.Errorf("runner: agent: %w", err))
 	}
 
 	after, err := snapshot(workspace, agent.IgnoreOutcomePath)
 	if err != nil {
-		return nil, workspace, fmt.Errorf("runner: snapshot after: %w", err)
+		return fail(fmt.Errorf("runner: snapshot after: %w", err))
 	}
 	files := diffSnapshots(before, after)
 
@@ -213,7 +227,11 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*re
 		Error:        obs.Error,
 		FinalMessage: obs.FinalMessage,
 	}
-	return r, workspace, nil
+	return &RunOutput{
+		Result:    r,
+		Workspace: workspace,
+		AgentLog:  obs.Log,
+	}, nil
 }
 
 type fileMeta struct {

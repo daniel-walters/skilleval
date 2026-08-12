@@ -15,7 +15,7 @@ import (
 	"github.com/daniel-walters/skilleval/skill"
 )
 
-//go:embed claudeagent/run.mjs claudeagent/skills.mjs claudeagent/package.json claudeagent/package-lock.json toolargs.mjs
+//go:embed claudeagent/run.mjs claudeagent/skills.mjs claudeagent/package.json claudeagent/package-lock.json toolargs.mjs agentlog.mjs
 var claudeAssets embed.FS
 
 // ClaudeAgent invokes the embedded Node helper with @anthropic-ai/claude-agent-sdk.
@@ -128,10 +128,10 @@ func prepareClaudeHelperDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("claudeagent: temp dir: %w", err)
 	}
-	for _, name := range []string{"run.mjs", "skills.mjs", "package.json", "package-lock.json", "toolargs.mjs"} {
+	for _, name := range []string{"run.mjs", "skills.mjs", "package.json", "package-lock.json", "toolargs.mjs", "agentlog.mjs"} {
 		src := "claudeagent/" + name
-		if name == "toolargs.mjs" {
-			src = "toolargs.mjs"
+		if name == "toolargs.mjs" || name == "agentlog.mjs" {
+			src = name
 		}
 		data, err := claudeAssets.ReadFile(src)
 		if err != nil {
