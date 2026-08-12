@@ -19,27 +19,21 @@ const {
   errorEvent,
   appendClaudeMessage,
 } = await import("./agentlog.mjs");
+const { emptyUsage, addUsage, addCost, userMessages } = await import(
+  "./legagg.mjs"
+);
 
 function parseArgs(argv) {
-  const out = { cwd: "", model: "", prompt: "", skill: "" };
+  const out = { cwd: "", model: "", prompt: "", skill: "", replies: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--cwd") out.cwd = argv[++i] ?? "";
     else if (a === "--model") out.model = argv[++i] ?? "";
     else if (a === "--prompt") out.prompt = argv[++i] ?? "";
     else if (a === "--skill") out.skill = argv[++i] ?? "";
+    else if (a === "--reply") out.replies.push(argv[++i] ?? "");
   }
   return out;
-}
-
-function emptyUsage() {
-  return {
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalTokens: 0,
-  };
 }
 
 function mapUsage(u) {
@@ -74,104 +68,128 @@ function mapStatus(resultMsg) {
 }
 
 async function main() {
-  const { cwd, model, prompt } = parseArgs(process.argv.slice(2));
+  const { cwd, model, prompt, replies } = parseArgs(process.argv.slice(2));
   if (!cwd || !model || !prompt) {
     console.error(
-      "usage: run.mjs --cwd <dir> --model <id> --prompt <text> [--skill <name>]",
+      "usage: run.mjs --cwd <dir> --model <id> --prompt <text> [--reply <text> ...] [--skill <name>]",
     );
     process.exit(2);
   }
 
+  const messages = userMessages(prompt, replies);
   const toolsUsedSet = new Set();
   const toolCalls = [];
   const activatedSkills = new Set();
-  const logEvents = [userEvent(prompt)];
-  let resultMsg = null;
+  const logEvents = [];
+  let usage = emptyUsage();
+  let durationMs = 0;
+  let turns = 0;
+  let costUSD = null;
+  let firstId = "";
+  let sessionId = undefined;
+  let lastResultMsg = null;
+  let status = "finished";
+  let error = null;
 
   try {
-    for await (const message of query({
-      prompt,
-      options: {
+    for (let i = 0; i < messages.length; i++) {
+      const text = messages[i];
+      logEvents.push(userEvent(text));
+
+      const options = {
         cwd,
         model,
         settingSources: ["project"],
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
         skills: "all",
-      },
-    })) {
-      if (message.type === "assistant" && message.message?.content) {
-        appendClaudeMessage(logEvents, message, cwd);
-        for (const block of message.message.content) {
-          if (block?.type !== "tool_use") continue;
-          const name = block.name ?? "unknown";
-          toolsUsedSet.add(name);
-          const entry = { name, status: "completed" };
-          const args = normalizeToolArgs(block.input, cwd);
-          if (args) entry.args = args;
-          toolCalls.push(entry);
-          if (name === "Skill") {
-            const skillName = activatedSkillFromInput(block.input);
-            if (skillName) {
-              activatedSkills.add(skillName);
+      };
+      if (i > 0 && sessionId) {
+        options.resume = sessionId;
+      }
+
+      let resultMsg = null;
+      try {
+        for await (const message of query({ prompt: text, options })) {
+          if (message.type === "assistant" && message.message?.content) {
+            appendClaudeMessage(logEvents, message, cwd);
+            for (const block of message.message.content) {
+              if (block?.type !== "tool_use") continue;
+              const name = block.name ?? "unknown";
+              toolsUsedSet.add(name);
+              const entry = { name, status: "completed" };
+              const args = normalizeToolArgs(block.input, cwd);
+              if (args) entry.args = args;
+              toolCalls.push(entry);
+              if (name === "Skill") {
+                const skillName = activatedSkillFromInput(block.input);
+                if (skillName) {
+                  activatedSkills.add(skillName);
+                }
+              }
             }
           }
+          if (message.type === "result") {
+            resultMsg = message;
+          }
+        }
+      } catch (err) {
+        // Single-shot query() may throw after yielding an error result.
+        if (!resultMsg) {
+          throw err;
         }
       }
-      if (message.type === "result") {
-        resultMsg = message;
+
+      lastResultMsg = resultMsg;
+      if (!resultMsg) {
+        status = "error";
+        error = "claude agent: no result message";
+        logEvents.push(errorEvent(error));
+        break;
       }
-    }
 
-    if (!resultMsg) {
-      const errText = "claude agent: no result message";
-      logEvents.push(errorEvent(errText));
-      const out = {
-        id: "",
-        status: "error",
-        finalMessage: "",
-        error: errText,
-        durationMs: 0,
-        turns: 0,
-        toolsUsed: [...toolsUsedSet],
-        toolCalls,
-        usage: emptyUsage(),
-        skills: { activated: [...activatedSkills] },
-        costUSD: null,
-        log: makeLog(logEvents),
-      };
-      process.stdout.write(JSON.stringify(out) + "\n");
-      return;
-    }
-
-    const status = mapStatus(resultMsg);
-    let error = null;
-    if (status === "error") {
-      if (Array.isArray(resultMsg.errors) && resultMsg.errors.length > 0) {
-        error = resultMsg.errors.join("; ");
-      } else if (typeof resultMsg.result === "string" && resultMsg.result) {
-        error = resultMsg.result;
-      } else {
-        error = resultMsg.subtype ?? "error";
+      if (!firstId) {
+        firstId = resultMsg.session_id ?? "";
       }
-      logEvents.push(errorEvent(error));
-    }
-
-    const out = {
-      id: resultMsg.session_id ?? "",
-      status,
-      finalMessage: status === "finished" ? (resultMsg.result ?? "") : "",
-      error,
-      durationMs: resultMsg.duration_ms ?? 0,
-      turns: resultMsg.num_turns ?? 0,
-      toolsUsed: [...toolsUsedSet],
-      toolCalls,
-      usage: mapUsage(resultMsg.usage),
-      skills: { activated: [...activatedSkills] },
-      costUSD:
+      sessionId = resultMsg.session_id ?? sessionId;
+      usage = addUsage(usage, mapUsage(resultMsg.usage));
+      durationMs += resultMsg.duration_ms ?? 0;
+      turns += resultMsg.num_turns ?? 0;
+      costUSD = addCost(
+        costUSD,
         typeof resultMsg.total_cost_usd === "number"
           ? resultMsg.total_cost_usd
           : null,
+      );
+
+      status = mapStatus(resultMsg);
+      error = null;
+      if (status === "error") {
+        if (Array.isArray(resultMsg.errors) && resultMsg.errors.length > 0) {
+          error = resultMsg.errors.join("; ");
+        } else if (typeof resultMsg.result === "string" && resultMsg.result) {
+          error = resultMsg.result;
+        } else {
+          error = resultMsg.subtype ?? "error";
+        }
+        logEvents.push(errorEvent(error));
+        break;
+      }
+    }
+
+    const out = {
+      id: firstId || lastResultMsg?.session_id || "",
+      status,
+      finalMessage:
+        status === "finished" ? (lastResultMsg?.result ?? "") : "",
+      error,
+      durationMs,
+      turns,
+      toolsUsed: [...toolsUsedSet],
+      toolCalls,
+      usage,
+      skills: { activated: [...activatedSkills] },
+      costUSD,
       log: makeLog(logEvents),
     };
     process.stdout.write(JSON.stringify(out) + "\n");
@@ -179,20 +197,17 @@ async function main() {
     const errText = err?.message ?? String(err);
     logEvents.push(errorEvent(errText));
     const out = {
-      id: resultMsg?.session_id ?? "",
+      id: firstId || lastResultMsg?.session_id || "",
       status: "error",
       finalMessage: "",
       error: errText,
-      durationMs: resultMsg?.duration_ms ?? 0,
-      turns: resultMsg?.num_turns ?? 0,
+      durationMs,
+      turns,
       toolsUsed: [...toolsUsedSet],
       toolCalls,
-      usage: mapUsage(resultMsg?.usage),
+      usage,
       skills: { activated: [...activatedSkills] },
-      costUSD:
-        typeof resultMsg?.total_cost_usd === "number"
-          ? resultMsg.total_cost_usd
-          : null,
+      costUSD,
       log: makeLog(logEvents),
     };
     process.stdout.write(JSON.stringify(out) + "\n");

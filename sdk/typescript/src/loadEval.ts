@@ -52,6 +52,22 @@ export async function loadEval(evalPath: string): Promise<EvalDocument> {
     skill: o.skill,
     sourcePath: abs,
   };
+  if (o.replies !== undefined && o.replies !== null) {
+    if (!Array.isArray(o.replies)) {
+      throw new Error(`loadEval: ${abs}: replies must be an array of strings`);
+    }
+    const replies: string[] = [];
+    for (let i = 0; i < o.replies.length; i++) {
+      const r = o.replies[i];
+      if (typeof r !== "string" || !r.trim()) {
+        throw new Error(`loadEval: ${abs}: replies[${i}] must be a non-empty string`);
+      }
+      replies.push(r);
+    }
+    if (replies.length > 0) {
+      ev.replies = replies;
+    }
+  }
   if (typeof o.input === "string" && o.input) {
     ev.input = o.input;
   }

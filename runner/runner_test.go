@@ -182,6 +182,47 @@ func TestRunReturnsAgentLog(t *testing.T) {
 	}
 }
 
+func TestRunForwardsReplies(t *testing.T) {
+	dir := t.TempDir()
+	setupEval(t, dir)
+	evalPath := filepath.Join(dir, "eval.yaml")
+	body := `schemaVersion: 1
+name: demo-eval
+prompt: Refactor src/foo.go
+replies:
+  - yes
+  - proceed
+skill: skills/demo
+input: fixtures/in
+`
+	if err := os.WriteFile(evalPath, []byte(body), 0o644); err != nil {
+		t.Fatalf("write eval: %v", err)
+	}
+
+	agent := &fakeAgent{
+		obs: runner.AgentObservables{
+			ID:     "run_replies",
+			Status: result.StatusFinished,
+		},
+	}
+	ev, err := eval.Load(evalPath)
+	if err != nil {
+		t.Fatalf("eval.Load: %v", err)
+	}
+	out, err := runner.Run(context.Background(), ev, evalPath, runner.Options{
+		Model: "m",
+		Agent: agent,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(out.Workspace) }()
+
+	if len(agent.lastReq.Replies) != 2 || agent.lastReq.Replies[0] != "yes" || agent.lastReq.Replies[1] != "proceed" {
+		t.Fatalf("Replies = %#v", agent.lastReq.Replies)
+	}
+}
+
 func TestRunSeedsMCP(t *testing.T) {
 	dir := t.TempDir()
 	setupEval(t, dir)

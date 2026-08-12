@@ -112,6 +112,9 @@ export function appendStreamEvent(events, event, cwd) {
  * Returns null when conversation has no assistantMessage steps (caller should
  * keep stream events), matching countTurns trust rules.
  *
+ * Emits a user event per agentConversationTurn (multi-turn scripted replies).
+ * When a turn has no userMessage, the initial prompt seeds the first user event.
+ *
  * @param {unknown} conversation
  * @param {string} prompt
  * @param {string} [cwd]
@@ -122,20 +125,22 @@ export function eventsFromConversation(conversation, prompt, cwd) {
     return null;
   }
 
-  const events = [userEvent(prompt)];
+  const events = [];
   // Align with countTurns: only trust conversation when assistantMessage steps exist.
   // Tool-only / thinking-only transcripts fall back to the richer stream log.
   let sawAssistant = false;
+  let sawUser = false;
 
   for (const turn of conversation) {
     if (turn?.type !== "agentConversationTurn") continue;
     const agentTurn = turn.turn ?? {};
     const userText = agentTurn.userMessage?.text;
-    if (typeof userText === "string" && userText && events.length === 1) {
-      // Prefer conversation's user message when it differs; keep prompt as first.
-      if (userText !== prompt) {
-        events[0] = userEvent(userText);
-      }
+    if (typeof userText === "string" && userText) {
+      events.push(userEvent(userText));
+      sawUser = true;
+    } else if (!sawUser) {
+      events.push(userEvent(prompt));
+      sawUser = true;
     }
     for (const step of agentTurn.steps ?? []) {
       if (step?.type === "assistantMessage") {
@@ -154,6 +159,10 @@ export function eventsFromConversation(conversation, prompt, cwd) {
         events.push(entry);
       }
     }
+  }
+
+  if (!sawUser) {
+    events.unshift(userEvent(prompt));
   }
 
   return sawAssistant ? events : null;

@@ -64,6 +64,8 @@ my-eval/
   mcp.json             # optional; native MCP config
 ```
 
+Optional `replies` (scripted mid-run user messages) are documented under [Interactive skills](#interactive-skills-replies).
+
 
 
 ### TypeScript
@@ -181,7 +183,39 @@ skilleval run ./eval.yaml --model composer-2.5
 skilleval run ./eval.yaml --model composer-2.5 --runner claude
 ```
 
-Paths in the YAML are relative to the YAML file. Complete examples: `[examples/refactor-helper/eval.yaml](examples/refactor-helper/eval.yaml)`, `[examples/mcp-ping/eval.yaml](examples/mcp-ping/eval.yaml)`.
+Paths in the YAML are relative to the YAML file. Complete examples: `[examples/refactor-helper/eval.yaml](examples/refactor-helper/eval.yaml)`, `[examples/mcp-ping/eval.yaml](examples/mcp-ping/eval.yaml)`, `[examples/interactive-confirm/eval.yaml](examples/interactive-confirm/eval.yaml)`.
+
+### Interactive skills (`replies`)
+
+Skills that ask a question or confirmation mid-run can take scripted follow-ups. After the initial `prompt` finishes, each entry in `replies` is sent as the next user message (same attempt, same workspace).
+
+```yaml
+prompt: |
+  Use the interactive-confirm skill to clean up obsolete files.
+replies:
+  - yes
+```
+
+```ts
+await run({
+  name: "interactive-confirm",
+  prompt: "Use the interactive-confirm skill to clean up obsolete files.",
+  replies: ["yes"],
+  skill: "./skills/interactive-confirm",
+  input: "./fixtures/interactive-confirm",
+  model: "composer-2.5",
+});
+```
+
+The skill must complete a turn between interactions (ask, then stop). Worked example: `[examples/interactive-confirm/](examples/interactive-confirm/)`.
+
+
+| Supported                         | Not supported yet                                      |
+| --------------------------------- | ------------------------------------------------------ |
+| Ordered scripted mid-run replies  | Live human-in-the-loop UI                              |
+| Cursor and Claude runners         | Auto-answering AskQuestion / blocking elicitation tools |
+|                                   | Interactive OAuth (unchanged; see MCP)                 |
+
 
 ---
 
@@ -308,6 +342,7 @@ In CI, upload `*-summary.json` as an artifact; on the next job, download the pri
 | TypeScript `run` + `expect`, script discovery        | YAML suite discovery               |
 | Multi-run batches, history, baseline compare         | Model matrix in one invocation     |
 | Native project MCP seeding                           | Interactive OAuth MCP in CI        |
+| Scripted mid-run user replies (`replies`)            | Live HITL / AskQuestion auto-fill  |
 | npm platform binaries; GitHub Release / `go install` | Homebrew / apt                     |
 
 

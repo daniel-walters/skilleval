@@ -23,26 +23,19 @@ const {
   eventsFromConversation,
   finalizeLogEvents,
 } = await import("./agentlog.mjs");
+const { emptyUsage, addUsage, userMessages, preferConversationTranscript, composeLocalFollowUpPrompt } =
+  await import("./legagg.mjs");
 
 function parseArgs(argv) {
-  const out = { cwd: "", model: "", prompt: "" };
+  const out = { cwd: "", model: "", prompt: "", replies: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--cwd") out.cwd = argv[++i] ?? "";
     else if (a === "--model") out.model = argv[++i] ?? "";
     else if (a === "--prompt") out.prompt = argv[++i] ?? "";
+    else if (a === "--reply") out.replies.push(argv[++i] ?? "");
   }
   return out;
-}
-
-function emptyUsage() {
-  return {
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalTokens: 0,
-  };
 }
 
 function mapUsage(u) {
@@ -119,9 +112,11 @@ function finalizeToolCalls(toolCalls, runStatus) {
 }
 
 async function main() {
-  const { cwd, model, prompt } = parseArgs(process.argv.slice(2));
+  const { cwd, model, prompt, replies } = parseArgs(process.argv.slice(2));
   if (!cwd || !model || !prompt) {
-    console.error("usage: run.mjs --cwd <dir> --model <id> --prompt <text>");
+    console.error(
+      "usage: run.mjs --cwd <dir> --model <id> --prompt <text> [--reply <text> ...]",
+    );
     process.exit(2);
   }
 
@@ -131,11 +126,18 @@ async function main() {
     process.exit(2);
   }
 
+  const messages = userMessages(prompt, replies);
   const toolCalls = [];
   const toolsUsedSet = new Set();
   const activatedSkills = new Set();
-  const streamLogEvents = [userEvent(prompt)];
-  let turns = 0;
+  const streamLogEvents = [];
+  let streamTurns = 0;
+  let usage = emptyUsage();
+  let durationMs = 0;
+  let firstId = "";
+  let lastResult = null;
+  let lastRun = null;
+  let runStatus = "finished";
 
   let agent;
   try {
@@ -148,25 +150,54 @@ async function main() {
       },
     });
 
-    const run = await agent.send(prompt);
-    for await (const event of run.stream()) {
-      if (event.type === "tool_call") {
-        recordToolCall(toolCalls, toolsUsedSet, event, cwd);
-        noteActivatedSkill(activatedSkills, event);
-        appendStreamEvent(streamLogEvents, event, cwd);
-      } else if (event.type === "assistant") {
-        turns += 1;
-        appendStreamEvent(streamLogEvents, event, cwd);
+    for (let i = 0; i < messages.length; i++) {
+      const text = messages[i];
+      // Agent log keeps the clean reply; local SDK may need history in send().
+      streamLogEvents.push(userEvent(text));
+      const sendText =
+        i === 0
+          ? text
+          : composeLocalFollowUpPrompt(text, streamLogEvents.slice(0, -1));
+
+      const run = await agent.send(sendText);
+      lastRun = run;
+      for await (const event of run.stream()) {
+        if (event.type === "tool_call") {
+          recordToolCall(toolCalls, toolsUsedSet, event, cwd);
+          noteActivatedSkill(activatedSkills, event);
+          appendStreamEvent(streamLogEvents, event, cwd);
+        } else if (event.type === "assistant") {
+          streamTurns += 1;
+          appendStreamEvent(streamLogEvents, event, cwd);
+        }
+      }
+
+      const result = await run.wait();
+      lastResult = result;
+      if (!firstId) {
+        firstId = result.id ?? run.id ?? "";
+      }
+      usage = addUsage(usage, mapUsage(result.usage));
+      durationMs += result.durationMs ?? 0;
+      runStatus = result.status ?? "finished";
+      finalizeToolCalls(toolCalls, runStatus);
+
+      if (runStatus !== "finished") {
+        break;
       }
     }
 
-    const result = await run.wait();
-    let conversationTurns = turns;
+    let conversationTurns = streamTurns;
     let logEvents = streamLogEvents;
+    // Each Cursor Run owns one prompt's conversation. Multi-leg attempts must
+    // keep stream-aggregated turns/log; lastRun.conversation() would truncate.
     try {
-      if (run.supports?.("conversation")) {
-        const conv = await run.conversation();
-        conversationTurns = countTurns(turns, conv);
+      if (
+        preferConversationTranscript(messages.length) &&
+        lastRun?.supports?.("conversation")
+      ) {
+        const conv = await lastRun.conversation();
+        conversationTurns = countTurns(streamTurns, conv);
         const fromConv = eventsFromConversation(conv, prompt, cwd);
         if (fromConv) {
           logEvents = fromConv;
@@ -176,23 +207,20 @@ async function main() {
       // keep stream-derived turns and log
     }
 
-    const runStatus = result.status ?? "finished";
-    finalizeToolCalls(toolCalls, runStatus);
-
-    if (result.error?.message) {
-      logEvents.push(errorEvent(result.error.message));
+    if (lastResult?.error?.message) {
+      logEvents.push(errorEvent(lastResult.error.message));
     }
 
     const out = {
-      id: result.id ?? run.id ?? "",
+      id: firstId || lastResult?.id || lastRun?.id || "",
       status: runStatus,
-      finalMessage: result.result ?? "",
-      error: result.error?.message ? result.error.message : null,
-      durationMs: result.durationMs ?? 0,
+      finalMessage: lastResult?.result ?? "",
+      error: lastResult?.error?.message ? lastResult.error.message : null,
+      durationMs,
       turns: conversationTurns,
       toolsUsed: [...toolsUsedSet],
       toolCalls: emitToolCalls(toolCalls),
-      usage: mapUsage(result.usage),
+      usage,
       skills: { activated: [...activatedSkills] },
       log: makeLog(finalizeLogEvents(logEvents, runStatus)),
     };
@@ -200,17 +228,22 @@ async function main() {
   } catch (err) {
     if (err instanceof CursorAgentError) {
       const out = {
-        id: "",
+        id: firstId,
         status: "error",
         finalMessage: "",
         error: err.message ?? String(err),
-        durationMs: 0,
-        turns: 0,
-        toolsUsed: [],
-        toolCalls: [],
-        usage: emptyUsage(),
-        skills: { activated: [] },
-        log: makeLog([userEvent(prompt), errorEvent(err.message ?? String(err))]),
+        durationMs,
+        turns: streamTurns,
+        toolsUsed: [...toolsUsedSet],
+        toolCalls: emitToolCalls(toolCalls),
+        usage,
+        skills: { activated: [...activatedSkills] },
+        log: makeLog(
+          finalizeLogEvents(
+            [...streamLogEvents, errorEvent(err.message ?? String(err))],
+            "error",
+          ),
+        ),
       };
       process.stdout.write(JSON.stringify(out) + "\n");
       return;

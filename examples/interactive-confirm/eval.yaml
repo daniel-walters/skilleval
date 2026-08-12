@@ -1,0 +1,21 @@
+schemaVersion: 1
+name: interactive-confirm
+prompt: |
+  Use the interactive-confirm skill to clean up obsolete files in this workspace.
+replies:
+  - yes
+skill: skills/interactive-confirm
+input: fixtures/interactive-confirm
+expects:
+  turns:
+    max: 20
+  costUSD:
+    max: 1.0
+  skills:
+    activated:
+      includes: [interactive-confirm]
+  files:
+    obsolete.txt:
+      status: deleted
+  finalMessage:
+    contains: /(?i)deleted|removed|confirm/

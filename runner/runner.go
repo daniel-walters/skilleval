@@ -38,6 +38,8 @@ type Options struct {
 type AgentRequest struct {
 	Workspace string
 	Prompt    string
+	// Replies are optional ordered follow-up user messages after Prompt.
+	Replies   []string
 	Model     string
 	SkillName string
 }
@@ -147,6 +149,7 @@ func Run(ctx context.Context, ev *eval.Eval, evalPath string, opts Options) (*Ru
 	obs, err := agent.Run(ctx, AgentRequest{
 		Workspace: workspace,
 		Prompt:    ev.Prompt,
+		Replies:   ev.Replies,
 		Model:     opts.Model,
 		SkillName: sk.Name,
 	})
@@ -381,4 +384,12 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return out.Close()
+}
+
+// appendReplyArgs appends repeated --reply flags for scripted follow-ups.
+func appendReplyArgs(args []string, replies []string) []string {
+	for _, r := range replies {
+		args = append(args, "--reply", r)
+	}
+	return args
 }

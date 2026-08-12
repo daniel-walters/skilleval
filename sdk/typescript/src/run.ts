@@ -78,6 +78,9 @@ export async function resolveEvalAndFlags(
       prompt: opts.prompt,
       skill: path.resolve(opts.skill),
     };
+    if (opts.replies && opts.replies.length > 0) {
+      doc.replies = opts.replies;
+    }
     if (opts.input) {
       doc.input = path.resolve(opts.input);
     }

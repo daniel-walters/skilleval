@@ -72,6 +72,39 @@ describe("eventsFromConversation", () => {
     ];
     assert.equal(eventsFromConversation(conversation, "p"), null);
   });
+
+  it("emits multiple user messages across conversation turns", () => {
+    const conversation = [
+      {
+        type: "agentConversationTurn",
+        turn: {
+          userMessage: { text: "start" },
+          steps: [{ type: "assistantMessage", message: { text: "Confirm?" } }],
+        },
+      },
+      {
+        type: "agentConversationTurn",
+        turn: {
+          userMessage: { text: "yes" },
+          steps: [
+            {
+              type: "toolCall",
+              message: { name: "delete", status: "completed", args: { path: "x" } },
+            },
+            { type: "assistantMessage", message: { text: "Deleted" } },
+          ],
+        },
+      },
+    ];
+    const events = eventsFromConversation(conversation, "start");
+    assert.deepEqual(events, [
+      { type: "user", text: "start" },
+      { type: "assistant", text: "Confirm?" },
+      { type: "user", text: "yes" },
+      { type: "tool_call", name: "delete", status: "completed", args: { path: "x" } },
+      { type: "assistant", text: "Deleted" },
+    ]);
+  });
 });
 
 describe("appendStreamEvent", () => {
