@@ -76,6 +76,37 @@ func TestLoadRejectsMissingName(t *testing.T) {
 	}
 }
 
+func TestLoadAcceptsReplies(t *testing.T) {
+	path := writeTempEvalWithSkill(t, "schemaVersion: 1\nname: x\nprompt: p\nskill: skill-dir\nreplies:\n  - yes\n  - proceed\n")
+	e, err := eval.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(e.Replies) != 2 || e.Replies[0] != "yes" || e.Replies[1] != "proceed" {
+		t.Fatalf("Replies = %#v", e.Replies)
+	}
+}
+
+func TestLoadOmitsEmptyReplies(t *testing.T) {
+	path := writeTempEvalWithSkill(t, "schemaVersion: 1\nname: x\nprompt: p\nskill: skill-dir\nreplies: []\n")
+	e, err := eval.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Replies != nil {
+		t.Fatalf("Replies = %#v, want nil", e.Replies)
+	}
+}
+
+func TestLoadRejectsBlankReply(t *testing.T) {
+	path := writeTempEvalWithSkill(t, "schemaVersion: 1\nname: x\nprompt: p\nskill: skill-dir\nreplies:\n  - \"yes\"\n  - \"  \"\n")
+	if _, err := eval.Load(path); err == nil {
+		t.Fatal("expected error for blank replies entry")
+	} else if !strings.Contains(err.Error(), "replies[1]") {
+		t.Fatalf("error = %v, want replies[1]", err)
+	}
+}
+
 func TestLoadRejectsMissingInputDir(t *testing.T) {
 	path := writeTempEvalWithSkill(t, "schemaVersion: 1\nname: x\nprompt: p\nskill: skill-dir\ninput: missing-fixtures\n")
 	if _, err := eval.Load(path); err == nil {

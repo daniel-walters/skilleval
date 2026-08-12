@@ -20,6 +20,9 @@ type Eval struct {
 	SchemaVersion int    `yaml:"schemaVersion"`
 	Name          string `yaml:"name"`
 	Prompt        string `yaml:"prompt"`
+	// Replies are optional ordered follow-up user messages sent after the
+	// initial prompt finishes each agent leg (interactive skill testing).
+	Replies []string `yaml:"replies,omitempty"`
 	// Skill is a filesystem path to a skill directory containing SKILL.md
 	// (relative to the eval YAML, or absolute).
 	Skill string `yaml:"skill"`
@@ -179,6 +182,15 @@ func validate(e *Eval, path string) error {
 	}
 	if strings.TrimSpace(e.Skill) == "" {
 		return fmt.Errorf("eval: %s: skill is required", path)
+	}
+	if len(e.Replies) == 0 {
+		e.Replies = nil
+	} else {
+		for i, r := range e.Replies {
+			if strings.TrimSpace(r) == "" {
+				return fmt.Errorf("eval: %s: replies[%d] must be non-empty", path, i)
+			}
+		}
 	}
 	if e.Attempts <= 0 {
 		e.Attempts = 1

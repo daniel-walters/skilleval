@@ -64,6 +64,36 @@ describe("loadEval", () => {
     assert.deepEqual(ev.passRate, { min: 0.75 });
   });
 
+  it("loads replies", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "skilleval-load-"));
+    const p = path.join(dir, "eval.yaml");
+    fs.writeFileSync(
+      p,
+      [
+        "schemaVersion: 1",
+        "name: interactive",
+        "prompt: hi",
+        "skill: ./x",
+        "replies:",
+        "  - yes",
+        "  - proceed",
+        "",
+      ].join("\n"),
+    );
+    const ev = await loadEval(p);
+    assert.deepEqual(ev.replies, ["yes", "proceed"]);
+  });
+
+  it("rejects blank replies entries", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "skilleval-load-"));
+    const p = path.join(dir, "bad.yaml");
+    fs.writeFileSync(
+      p,
+      "schemaVersion: 1\nname: n\nprompt: hi\nskill: ./x\nreplies:\n  - yes\n  - \"  \"\n",
+    );
+    await assert.rejects(() => loadEval(p), /replies\[1\] must be a non-empty string/);
+  });
+
   it("rejects passRate.min out of range", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "skilleval-load-"));
     const p = path.join(dir, "bad.yaml");

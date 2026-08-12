@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 import { describe, it } from "node:test";
 
 import type { EvalDocument, RunOptions } from "../src/evalTypes.js";
@@ -80,6 +81,26 @@ describe("resolveEvalAndFlags", () => {
         }),
       /run: model is required/,
     );
+  });
+
+  it("writes replies into temp eval YAML", async () => {
+    const { evalPath, cleanup } = await resolveEvalAndFlags({
+      name: "n",
+      prompt: "p",
+      skill: "./skill",
+      model: "composer-2",
+      replies: ["yes", "proceed"],
+    });
+    try {
+      const raw = await fs.readFile(evalPath, "utf8");
+      assert.match(raw, /replies:/);
+      assert.match(raw, /- yes/);
+      assert.match(raw, /- proceed/);
+    } finally {
+      if (cleanup) {
+        await fs.rm(cleanup, { recursive: true, force: true }).catch(() => undefined);
+      }
+    }
   });
 });
 

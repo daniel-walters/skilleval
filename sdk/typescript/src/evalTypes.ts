@@ -3,6 +3,11 @@ export interface EvalDocument {
   schemaVersion: number;
   name: string;
   prompt: string;
+  /**
+   * Optional ordered follow-up user messages after the initial prompt
+   * finishes each agent leg (interactive skill testing).
+   */
+  replies?: string[];
   /** Path to a skill directory containing SKILL.md. */
   skill: string;
   input?: string;
@@ -26,6 +31,8 @@ export interface PassRateExpect {
 export interface RunOptions {
   name: string;
   prompt: string;
+  /** Optional ordered follow-up user messages (see EvalDocument.replies). */
+  replies?: string[];
   skill: string;
   input?: string;
   mcp?: string;
