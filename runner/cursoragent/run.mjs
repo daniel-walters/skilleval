@@ -194,7 +194,7 @@ async function main() {
       toolCalls: emitToolCalls(toolCalls),
       usage: mapUsage(result.usage),
       skills: { activated: [...activatedSkills] },
-      log: makeLog(finalizeLogEvents(logEvents)),
+      log: makeLog(finalizeLogEvents(logEvents, runStatus)),
     };
     process.stdout.write(JSON.stringify(out) + "\n");
   } catch (err) {

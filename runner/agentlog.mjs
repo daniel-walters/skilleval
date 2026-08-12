@@ -109,7 +109,8 @@ export function appendStreamEvent(events, event, cwd) {
 
 /**
  * Convert Cursor run.conversation() turns into normalized log events.
- * Returns null when conversation has no usable agent steps (caller should keep stream events).
+ * Returns null when conversation has no assistantMessage steps (caller should
+ * keep stream events), matching countTurns trust rules.
  *
  * @param {unknown} conversation
  * @param {string} prompt
@@ -122,7 +123,9 @@ export function eventsFromConversation(conversation, prompt, cwd) {
   }
 
   const events = [userEvent(prompt)];
-  let sawStep = false;
+  // Align with countTurns: only trust conversation when assistantMessage steps exist.
+  // Tool-only / thinking-only transcripts fall back to the richer stream log.
+  let sawAssistant = false;
 
   for (const turn of conversation) {
     if (turn?.type !== "agentConversationTurn") continue;
@@ -139,7 +142,7 @@ export function eventsFromConversation(conversation, prompt, cwd) {
         const text = step.message?.text;
         if (typeof text === "string" && text) {
           events.push({ type: "assistant", text });
-          sawStep = true;
+          sawAssistant = true;
         }
       } else if (step?.type === "toolCall") {
         const msg = step.message ?? {};
@@ -149,12 +152,11 @@ export function eventsFromConversation(conversation, prompt, cwd) {
         const args = normalizeToolArgs(msg.args ?? msg.input, cwd);
         if (args) entry.args = args;
         events.push(entry);
-        sawStep = true;
       }
     }
   }
 
-  return sawStep ? events : null;
+  return sawAssistant ? events : null;
 }
 
 /**
@@ -185,14 +187,22 @@ export function appendClaudeMessage(events, message, cwd) {
 }
 
 /**
- * Drop internal callId fields before emitting the sidecar log.
+ * Close leftover running tool_call statuses (mirrors finalizeToolCalls) and
+ * drop internal callId fields before emitting the sidecar log.
+ *
  * @param {object[]} events
+ * @param {string} [runStatus]
  * @returns {object[]}
  */
-export function finalizeLogEvents(events) {
+export function finalizeLogEvents(events, runStatus) {
+  const fallback =
+    runStatus === "error" || runStatus === "cancelled" ? "error" : "completed";
   return (events ?? []).map((e) => {
     if (!e || e.type !== "tool_call") return e;
     const { callId, ...rest } = e;
+    if (rest.status === "running") {
+      rest.status = fallback;
+    }
     return rest;
   });
 }

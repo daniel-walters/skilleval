@@ -57,6 +57,21 @@ describe("eventsFromConversation", () => {
       null,
     );
   });
+
+  it("returns null for tool-only conversation (keep stream log)", () => {
+    const conversation = [
+      {
+        type: "agentConversationTurn",
+        turn: {
+          steps: [
+            { type: "thinkingMessage", message: { text: "..." } },
+            { type: "toolCall", message: { name: "read" } },
+          ],
+        },
+      },
+    ];
+    assert.equal(eventsFromConversation(conversation, "p"), null);
+  });
 });
 
 describe("appendStreamEvent", () => {
@@ -87,8 +102,22 @@ describe("appendStreamEvent", () => {
     assert.equal(events.length, 1);
     assert.equal(events[0].status, "completed");
     assert.equal(events[0].args.path, "x.go");
-    assert.deepEqual(finalizeLogEvents(events), [
+    assert.deepEqual(finalizeLogEvents(events, "finished"), [
       { type: "tool_call", name: "read", status: "completed", args: { path: "x.go" } },
+    ]);
+  });
+});
+
+describe("finalizeLogEvents", () => {
+  it("closes leftover running tools from run status", () => {
+    const events = [
+      { type: "tool_call", callId: "c1", name: "shell", status: "running" },
+    ];
+    assert.deepEqual(finalizeLogEvents(events, "cancelled"), [
+      { type: "tool_call", name: "shell", status: "error" },
+    ]);
+    assert.deepEqual(finalizeLogEvents(events, "finished"), [
+      { type: "tool_call", name: "shell", status: "completed" },
     ]);
   });
 });
