@@ -1,0 +1,9 @@
+schemaVersion: 1
+name: fail-tool-calls-named
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  toolCalls:
+    named:
+      edit:
+        min: 2

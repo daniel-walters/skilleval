@@ -1,0 +1,11 @@
+schemaVersion: 1
+name: fail-tool-calls-args
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  toolCalls:
+    order:
+      - name: edit
+        args:
+          path:
+            equals: src/wrong.go

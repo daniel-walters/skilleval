@@ -1,0 +1,22 @@
+schemaVersion: 1
+name: pass-tool-calls-order
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  toolCalls:
+    min: 2
+    named:
+      edit:
+        min: 1
+        max: 2
+      shell:
+        eq: 1
+    order:
+      - name: edit
+        args:
+          path:
+            equals: src/foo.go
+      - name: shell
+        args:
+          command:
+            contains: go test
