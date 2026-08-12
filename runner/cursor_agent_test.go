@@ -87,6 +87,14 @@ func TestMapHelperOutputPreservesArgs(t *testing.T) {
 	}
 }
 
+func TestMapHelperOutputPreservesLog(t *testing.T) {
+	log := json.RawMessage(`{"schemaVersion":1,"events":[{"type":"user","text":"hi"}]}`)
+	obs := mapHelperOutput(helperOutput{Status: "finished", Log: log})
+	if string(obs.Log) != string(log) {
+		t.Fatalf("log = %s", obs.Log)
+	}
+}
+
 func TestMapHelperOutputUnknownStatusIsError(t *testing.T) {
 	obs := mapHelperOutput(helperOutput{Status: "thinking"})
 	if obs.Status != result.StatusError {

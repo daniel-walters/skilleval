@@ -217,7 +217,7 @@ Result `metrics.toolCalls` entries may include lean pre-call `args` (normalized 
 
 When the harness omits `costUSD`, skilleval estimates it from `cost/rates.json`. Unknown or unpriced models leave `costUSD` nil.
 
-Default artifacts from a CLI run: `result.json` (per attempt) and `result-summary.json` (with `passRate` and averages). Optional `--timeout` bounds each attempt (Go duration, e.g. `30m`).
+Default artifacts from a CLI run: `result.json` (per attempt), `result-agent-log.json` (full turn/tool transcript beside that result), and `result-summary.json` (with `passRate` and averages). The agent log is written whenever a result is written (finished, error, or cancelled) for debugging — it is not an expect/assert surface. Optional `--timeout` bounds each attempt (Go duration, e.g. `30m`).
 
 Eval and Result JSON use `schemaVersion: 1` — bumps only on a breaking contract change.
 
@@ -275,7 +275,7 @@ passRate:
   min: 0.8
 ```
 
-Each attempt gets its own Result. With `attempts > 1`, the CLI also writes `result-1.json`, … and `result-summary.json`. Exit is non-zero only when `passRate.min` is set and the batch rate is below it — not fail-on-any-attempt. Single-attempt runs keep expect-based exit behavior.
+Each attempt gets its own Result. With `attempts > 1`, the CLI also writes `result-1.json` / `result-1-agent-log.json`, … and `result-summary.json`. Exit is non-zero only when `passRate.min` is set and the batch rate is below it — not fail-on-any-attempt. Single-attempt runs keep expect-based exit behavior.
 
 ---
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -175,6 +176,53 @@ func TestAttemptOutPath(t *testing.T) {
 func TestSummaryOutPath(t *testing.T) {
 	if got := summaryOutPath("/tmp/result.json"); got != "/tmp/result-summary.json" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestAgentLogOutPath(t *testing.T) {
+	if got := agentLogOutPath("/tmp/result.json"); got != "/tmp/result-agent-log.json" {
+		t.Fatalf("got %q", got)
+	}
+	if got := agentLogOutPath("/tmp/result-2.json"); got != "/tmp/result-2-agent-log.json" {
+		t.Fatalf("multi = %q", got)
+	}
+}
+
+func TestWriteAgentLog(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "result-agent-log.json")
+	raw := json.RawMessage(`{"schemaVersion":1,"events":[{"type":"user","text":"hi"},{"type":"assistant","text":"ok"}]}`)
+	if err := writeAgentLog(path, raw); err != nil {
+		t.Fatalf("writeAgentLog: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	var doc struct {
+		SchemaVersion int `json:"schemaVersion"`
+		Events        []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"events"`
+	}
+	if err := json.Unmarshal(got, &doc); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if doc.SchemaVersion != 1 || len(doc.Events) != 2 || doc.Events[1].Text != "ok" {
+		t.Fatalf("doc = %+v", doc)
+	}
+
+	emptyPath := filepath.Join(dir, "empty-agent-log.json")
+	if err := writeAgentLog(emptyPath, nil); err != nil {
+		t.Fatalf("empty write: %v", err)
+	}
+	empty, err := os.ReadFile(emptyPath)
+	if err != nil {
+		t.Fatalf("read empty: %v", err)
+	}
+	if !bytes.Contains(empty, []byte(`"events": []`)) && !bytes.Contains(empty, []byte(`"events":[]`)) {
+		t.Fatalf("empty log = %s", empty)
 	}
 }
 

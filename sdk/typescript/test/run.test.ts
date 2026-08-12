@@ -92,6 +92,14 @@ describe("parseWroteLines", () => {
     assert.equal(lines[0]!.workspace, "/tmp/skilleval-abc");
   });
 
+  it("parses wrote lines that include agentLog", () => {
+    const stdout = `wrote /tmp/out/result.json (status=finished workspace=/tmp/w agentLog=/tmp/out/result-agent-log.json)\n`;
+    const lines = parseWroteLines(stdout);
+    assert.equal(lines.length, 1);
+    assert.equal(lines[0]!.outPath, "/tmp/out/result.json");
+    assert.equal(lines[0]!.workspace, "/tmp/w");
+  });
+
   it("parses multi-attempt wrote lines and keeps order", () => {
     const stdout = `
 attempt 1/2: wrote /tmp/result-1.json (status=finished workspace=/tmp/w1)

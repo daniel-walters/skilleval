@@ -13,6 +13,12 @@ for (const method of ["log", "info", "warn", "debug"]) {
 const { query } = await import("@anthropic-ai/claude-agent-sdk");
 const { activatedSkillFromInput } = await import("./skills.mjs");
 const { normalizeToolArgs } = await import("./toolargs.mjs");
+const {
+  makeLog,
+  userEvent,
+  errorEvent,
+  appendClaudeMessage,
+} = await import("./agentlog.mjs");
 
 function parseArgs(argv) {
   const out = { cwd: "", model: "", prompt: "", skill: "" };
@@ -79,6 +85,7 @@ async function main() {
   const toolsUsedSet = new Set();
   const toolCalls = [];
   const activatedSkills = new Set();
+  const logEvents = [userEvent(prompt)];
   let resultMsg = null;
 
   try {
@@ -94,6 +101,7 @@ async function main() {
       },
     })) {
       if (message.type === "assistant" && message.message?.content) {
+        appendClaudeMessage(logEvents, message, cwd);
         for (const block of message.message.content) {
           if (block?.type !== "tool_use") continue;
           const name = block.name ?? "unknown";
@@ -116,11 +124,13 @@ async function main() {
     }
 
     if (!resultMsg) {
+      const errText = "claude agent: no result message";
+      logEvents.push(errorEvent(errText));
       const out = {
         id: "",
         status: "error",
         finalMessage: "",
-        error: "claude agent: no result message",
+        error: errText,
         durationMs: 0,
         turns: 0,
         toolsUsed: [...toolsUsedSet],
@@ -128,6 +138,7 @@ async function main() {
         usage: emptyUsage(),
         skills: { activated: [...activatedSkills] },
         costUSD: null,
+        log: makeLog(logEvents),
       };
       process.stdout.write(JSON.stringify(out) + "\n");
       return;
@@ -143,6 +154,7 @@ async function main() {
       } else {
         error = resultMsg.subtype ?? "error";
       }
+      logEvents.push(errorEvent(error));
     }
 
     const out = {
@@ -160,14 +172,17 @@ async function main() {
         typeof resultMsg.total_cost_usd === "number"
           ? resultMsg.total_cost_usd
           : null,
+      log: makeLog(logEvents),
     };
     process.stdout.write(JSON.stringify(out) + "\n");
   } catch (err) {
+    const errText = err?.message ?? String(err);
+    logEvents.push(errorEvent(errText));
     const out = {
       id: resultMsg?.session_id ?? "",
       status: "error",
       finalMessage: "",
-      error: err?.message ?? String(err),
+      error: errText,
       durationMs: resultMsg?.duration_ms ?? 0,
       turns: resultMsg?.num_turns ?? 0,
       toolsUsed: [...toolsUsedSet],
@@ -178,6 +193,7 @@ async function main() {
         typeof resultMsg?.total_cost_usd === "number"
           ? resultMsg.total_cost_usd
           : null,
+      log: makeLog(logEvents),
     };
     process.stdout.write(JSON.stringify(out) + "\n");
   }
