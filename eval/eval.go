@@ -44,7 +44,7 @@ type PassRateExpect struct {
 type Expects struct {
 	Turns        *TurnsExpect          `yaml:"turns,omitempty"`
 	DurationMs   *TurnsExpect          `yaml:"durationMs,omitempty"`
-	ToolCalls    *TurnsExpect          `yaml:"toolCalls,omitempty"`
+	ToolCalls    *ToolCallsExpect      `yaml:"toolCalls,omitempty"`
 	Usage        *UsageExpect          `yaml:"usage,omitempty"`
 	CostUSD      *CostExpect           `yaml:"costUSD,omitempty"`
 	ToolsUsed    *ToolsUsedExpect      `yaml:"toolsUsed,omitempty"`
@@ -62,6 +62,30 @@ type TurnsExpect struct {
 	Gt  *int `yaml:"gt,omitempty"`
 	Lt  *int `yaml:"lt,omitempty"`
 	Eq  *int `yaml:"eq,omitempty"`
+}
+
+// ToolCallsExpect bounds total tool call count and optionally checks
+// ordered subsequences and per-name counts.
+type ToolCallsExpect struct {
+	Min   *int                    `yaml:"min,omitempty"`
+	Max   *int                    `yaml:"max,omitempty"`
+	Gt    *int                    `yaml:"gt,omitempty"`
+	Lt    *int                    `yaml:"lt,omitempty"`
+	Eq    *int                    `yaml:"eq,omitempty"`
+	Order []ToolCallStepExpect    `yaml:"order,omitempty"`
+	Named map[string]*TurnsExpect `yaml:"named,omitempty"`
+}
+
+// ToolCallStepExpect matches one call in an ordered subsequence.
+type ToolCallStepExpect struct {
+	Name string               `yaml:"name"`
+	Args map[string]ArgExpect `yaml:"args,omitempty"`
+}
+
+// ArgExpect checks a single tool-call arg value (stringified if non-string).
+type ArgExpect struct {
+	Contains StringMatch `yaml:"contains,omitempty"`
+	Equals   StringMatch `yaml:"equals,omitempty"`
 }
 
 // UsageExpect bounds token usage fields with the same int ops as turns.
@@ -258,6 +282,23 @@ func validateStringMatches(e *Eval, path string) error {
 			return fmt.Errorf("eval: %s: files[%q].equals: invalid regex: %w", path, filePath, err)
 		}
 		e.Expects.Files[filePath] = fe
+	}
+	if tc := e.Expects.ToolCalls; tc != nil {
+		for i := range tc.Order {
+			step := &tc.Order[i]
+			if strings.TrimSpace(step.Name) == "" {
+				return fmt.Errorf("eval: %s: toolCalls.order[%d]: name is required", path, i)
+			}
+			for argKey, ae := range step.Args {
+				if err := compileStringMatch(&ae.Contains); err != nil {
+					return fmt.Errorf("eval: %s: toolCalls.order[%d].args[%q].contains: invalid regex: %w", path, i, argKey, err)
+				}
+				if err := compileStringMatch(&ae.Equals); err != nil {
+					return fmt.Errorf("eval: %s: toolCalls.order[%d].args[%q].equals: invalid regex: %w", path, i, argKey, err)
+				}
+				step.Args[argKey] = ae
+			}
+		}
 	}
 	return nil
 }

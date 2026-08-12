@@ -14,6 +14,7 @@ for (const method of ["log", "info", "warn", "debug"]) {
 const { Agent, CursorAgentError } = await import("@cursor/sdk");
 const { countTurns } = await import("./turns.mjs");
 const { noteActivatedSkill } = await import("./skills.mjs");
+const { normalizeToolArgs } = await import("./toolargs.mjs");
 
 function parseArgs(argv) {
   const out = { cwd: "", model: "", prompt: "" };
@@ -48,16 +49,23 @@ function mapUsage(u) {
 }
 
 /** Record a tool_call stream event, coalescing start/complete for the same invocation. */
-function recordToolCall(toolCalls, toolsUsedSet, event) {
+function recordToolCall(toolCalls, toolsUsedSet, event, cwd) {
   const name = event.name ?? "unknown";
   const status = event.status ?? "completed";
   const callId = event.call_id;
+  const args = normalizeToolArgs(event.args, cwd);
   toolsUsedSet.add(name);
 
   if (callId) {
     const idx = toolCalls.findIndex((t) => t.callId === callId);
     if (idx >= 0) {
-      toolCalls[idx] = { callId, name, status };
+      const prev = toolCalls[idx];
+      toolCalls[idx] = {
+        callId,
+        name,
+        status,
+        args: args ?? prev.args,
+      };
       return;
     }
   }
@@ -70,13 +78,25 @@ function recordToolCall(toolCalls, toolsUsedSet, event) {
           callId: callId ?? toolCalls[i].callId,
           name,
           status,
+          args: args ?? toolCalls[i].args,
         };
         return;
       }
     }
   }
 
-  toolCalls.push({ callId, name, status });
+  toolCalls.push({ callId, name, status, args });
+}
+
+/** Serialize tool calls for helper stdout (omit empty args). */
+function emitToolCalls(toolCalls) {
+  return toolCalls.map(({ name, status, args }) => {
+    const out = { name, status };
+    if (args && Object.keys(args).length > 0) {
+      out.args = args;
+    }
+    return out;
+  });
 }
 
 /** After the run ends, no tool should still be "running". */
@@ -122,7 +142,7 @@ async function main() {
     const run = await agent.send(prompt);
     for await (const event of run.stream()) {
       if (event.type === "tool_call") {
-        recordToolCall(toolCalls, toolsUsedSet, event);
+        recordToolCall(toolCalls, toolsUsedSet, event, cwd);
         noteActivatedSkill(activatedSkills, event);
       } else if (event.type === "assistant") {
         turns += 1;
@@ -151,7 +171,7 @@ async function main() {
       durationMs: result.durationMs ?? 0,
       turns: conversationTurns,
       toolsUsed: [...toolsUsedSet],
-      toolCalls: toolCalls.map(({ name, status }) => ({ name, status })),
+      toolCalls: emitToolCalls(toolCalls),
       usage: mapUsage(result.usage),
       skills: { activated: [...activatedSkills] },
     };

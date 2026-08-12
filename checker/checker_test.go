@@ -24,6 +24,7 @@ func TestCheckFixtures(t *testing.T) {
 		{name: "pass-regex", wantPassed: true},
 		{name: "pass-numeric-bounds", wantPassed: true},
 		{name: "pass-extended-metrics", wantPassed: true},
+		{name: "pass-tool-calls-order", wantPassed: true},
 		{name: "pass-empty-bounds", wantPassed: true},
 		{name: "empty-expects", wantPassed: true},
 		{name: "pass-file-deleted", wantPassed: true},
@@ -37,6 +38,9 @@ func TestCheckFixtures(t *testing.T) {
 		{name: "fail-turns-combo", wantPassed: false, wantFailPath: []string{"turns.min", "turns.max"}},
 		{name: "fail-duration-ms", wantPassed: false, wantFailPath: []string{"durationMs.max"}},
 		{name: "fail-tool-calls", wantPassed: false, wantFailPath: []string{"toolCalls.min"}},
+		{name: "fail-tool-calls-order", wantPassed: false, wantFailPath: []string{"toolCalls.order[1]"}},
+		{name: "fail-tool-calls-named", wantPassed: false, wantFailPath: []string{"toolCalls.named.edit.min"}},
+		{name: "fail-tool-calls-args", wantPassed: false, wantFailPath: []string{"toolCalls.order[0]"}},
 		{
 			name:         "fail-usage",
 			wantPassed:   false,

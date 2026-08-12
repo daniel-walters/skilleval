@@ -88,6 +88,10 @@ Do all three: modify foo.go, create new.go, delete gone.go.`,
 expect(result).turns.toBeLessThanOrEqual(15);
 expect(result).costUSD.toBeLessThanOrEqual(1);
 expect(result).toolsUsed.toInclude("read", "edit").not.toInclude("web");
+expect(result).toolCalls.named("edit").toBeGreaterThanOrEqual(1);
+expect(result).toolCalls.toIncludeInOrder([
+  { name: "edit", args: { path: "src/foo.go" } },
+]);
 expect(result).skills.activated.toInclude("refactor-helper");
 expect(result, workspace)
   .file("src/foo.go")
@@ -147,6 +151,15 @@ expects:
   toolsUsed:
     includes: [read, edit]
     excludes: [web]
+  toolCalls:
+    named:
+      edit:
+        min: 1
+    order:
+      - name: edit
+        args:
+          path:
+            equals: src/foo.go
   skills:
     activated:
       includes: [refactor-helper]
@@ -191,6 +204,14 @@ Numeric bounds (`turns`, `durationMs`, `toolCalls`, `costUSD`, and `usage.*Token
 
 
 `toolsUsed` and `skills.activated` support include / exclude membership. Nil `costUSD` fails any cost bound.
+
+`toolCalls` also supports:
+
+- **Total count** — same numeric bounds as above (`min` / `toBeGreaterThanOrEqual`, …)
+- **`named.<tool>`** — count bounds for one tool name (`named.edit.min` / `toolCalls.named("edit").toBeGreaterThanOrEqual(1)`)
+- **`order` / `toIncludeInOrder`** — ordered **subsequence** (gaps allowed before/between/after). Each step has `name` and optional `args`. YAML arg checks use `contains` / `equals` (literal or `/regex/`). In TypeScript, a string arg means equals and a `RegExp` means match.
+
+Result `metrics.toolCalls` entries may include lean pre-call `args` (normalized `path` and `command`; large bodies stripped). Claude `file_path` is mapped to `path`, and `path` values under the attempt workspace are stored workspace-relative.
 
 When the harness omits `costUSD`, skilleval estimates it from `cost/rates.json`. Unknown or unpriced models leave `costUSD` nil.
 

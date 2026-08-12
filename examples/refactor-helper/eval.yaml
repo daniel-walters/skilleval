@@ -18,6 +18,15 @@ expects:
   toolsUsed:
     includes: [read, edit]
     excludes: [web]
+  toolCalls:
+    named:
+      edit:
+        min: 1
+    order:
+      - name: edit
+        args:
+          path:
+            equals: src/foo.go
   skills:
     activated:
       includes: [refactor-helper]

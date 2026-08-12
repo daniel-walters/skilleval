@@ -169,6 +169,47 @@ describe("expect tools and skills", () => {
   });
 });
 
+describe("expect toolCalls order / named", () => {
+  it("passes subsequence, named counts, and arg predicates", () => {
+    const r = loadResult("pass-tool-calls-order");
+    expect(r).toolCalls.toBeGreaterThanOrEqual(2);
+    expect(r).toolCalls.named("edit").toBeGreaterThanOrEqual(1).toBeLessThanOrEqual(2);
+    expect(r).toolCalls.named("shell").toBeEqual(1);
+    expect(r).toolCalls.toIncludeInOrder([
+      { name: "edit", args: { path: "src/foo.go" } },
+      { name: "shell", args: { command: /go test/ } },
+    ]);
+  });
+
+  it("fails when order is reversed", () => {
+    const r = loadResult("fail-tool-calls-order");
+    assertFail(
+      () =>
+        expect(r).toolCalls.toIncludeInOrder([
+          { name: "edit", args: { path: "src/foo.go" } },
+          { name: "shell", args: { command: /go test/ } },
+        ]),
+      "toolCalls.order[1]",
+    );
+  });
+
+  it("fails named count bounds", () => {
+    const r = loadResult("fail-tool-calls-named");
+    assertFail(() => expect(r).toolCalls.named("edit").toBeGreaterThanOrEqual(2), "toolCalls.named.edit.min");
+  });
+
+  it("fails when arg predicate does not match", () => {
+    const r = loadResult("fail-tool-calls-args");
+    assertFail(
+      () =>
+        expect(r).toolCalls.toIncludeInOrder([
+          { name: "edit", args: { path: "src/wrong.go" } },
+        ]),
+      "toolCalls.order[0]",
+    );
+  });
+});
+
 describe("expect files", () => {
   it("passes status and content on pass fixture", () => {
     const r = loadResult("pass");

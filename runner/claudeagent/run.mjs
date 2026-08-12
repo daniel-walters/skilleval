@@ -12,6 +12,7 @@ for (const method of ["log", "info", "warn", "debug"]) {
 
 const { query } = await import("@anthropic-ai/claude-agent-sdk");
 const { activatedSkillFromInput } = await import("./skills.mjs");
+const { normalizeToolArgs } = await import("./toolargs.mjs");
 
 function parseArgs(argv) {
   const out = { cwd: "", model: "", prompt: "", skill: "" };
@@ -97,7 +98,10 @@ async function main() {
           if (block?.type !== "tool_use") continue;
           const name = block.name ?? "unknown";
           toolsUsedSet.add(name);
-          toolCalls.push({ name, status: "completed" });
+          const entry = { name, status: "completed" };
+          const args = normalizeToolArgs(block.input, cwd);
+          if (args) entry.args = args;
+          toolCalls.push(entry);
           if (name === "Skill") {
             const skillName = activatedSkillFromInput(block.input);
             if (skillName) {

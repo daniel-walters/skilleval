@@ -82,17 +82,104 @@ func checkDurationMs(r *result.Result, e *eval.TurnsExpect) []Failure {
 	})
 }
 
-func checkToolCalls(r *result.Result, e *eval.TurnsExpect) []Failure {
+func checkToolCalls(r *result.Result, e *eval.ToolCallsExpect) []Failure {
 	if e == nil {
 		return nil
 	}
-	return checkIntBounds("toolCalls", len(r.Metrics.ToolCalls), intBounds{
+	calls := r.Metrics.ToolCalls
+	var failures []Failure
+	failures = append(failures, checkIntBounds("toolCalls", len(calls), intBounds{
 		Min: e.Min,
 		Max: e.Max,
 		Gt:  e.Gt,
 		Lt:  e.Lt,
 		Eq:  e.Eq,
-	})
+	})...)
+	for name, bounds := range e.Named {
+		if bounds == nil {
+			continue
+		}
+		count := 0
+		for _, c := range calls {
+			if c.Name == name {
+				count++
+			}
+		}
+		failures = append(failures, checkIntBounds("toolCalls.named."+name, count, intBounds{
+			Min: bounds.Min,
+			Max: bounds.Max,
+			Gt:  bounds.Gt,
+			Lt:  bounds.Lt,
+			Eq:  bounds.Eq,
+		})...)
+	}
+	failures = append(failures, checkToolCallOrder(calls, e.Order)...)
+	return failures
+}
+
+func checkToolCallOrder(calls []result.ToolCall, order []eval.ToolCallStepExpect) []Failure {
+	if len(order) == 0 {
+		return nil
+	}
+	i := 0
+	for stepIdx, step := range order {
+		found := false
+		for ; i < len(calls); i++ {
+			if toolCallMatchesStep(calls[i], step) {
+				i++
+				found = true
+				break
+			}
+		}
+		if !found {
+			reason := fmt.Sprintf("no matching tool call for order step %q", step.Name)
+			if len(step.Args) > 0 {
+				reason = fmt.Sprintf("no matching tool call for order step %q with given args", step.Name)
+			}
+			return []Failure{{
+				Path:   fmt.Sprintf("toolCalls.order[%d]", stepIdx),
+				Reason: reason,
+			}}
+		}
+	}
+	return nil
+}
+
+func toolCallMatchesStep(call result.ToolCall, step eval.ToolCallStepExpect) bool {
+	if call.Name != step.Name {
+		return false
+	}
+	for key, ae := range step.Args {
+		if call.Args == nil {
+			return false
+		}
+		actual, ok := call.Args[key]
+		if !ok {
+			return false
+		}
+		haystack := argString(actual)
+		if ae.Contains.IsSet() && !ae.Contains.MatchContains(haystack) {
+			return false
+		}
+		if ae.Equals.IsSet() && !ae.Equals.MatchEquals(haystack) {
+			return false
+		}
+		if !ae.Contains.IsSet() && !ae.Equals.IsSet() {
+			return false
+		}
+	}
+	return true
+}
+
+func argString(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case nil:
+		return ""
+	default:
+		return fmt.Sprint(t)
+	}
 }
 
 func checkUsage(r *result.Result, e *eval.UsageExpect) []Failure {
