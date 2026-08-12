@@ -4,13 +4,15 @@ import { FileMatchers } from "./matchers/file.js";
 import { FinalMessageMatchers } from "./matchers/finalMessage.js";
 import { NumericFloatMatchers, NumericIntMatchers } from "./matchers/numeric.js";
 import { SkillsActivatedMatchers, ToolsUsedMatchers } from "./matchers/sets.js";
+import { ToolCallsMatchers } from "./matchers/toolCalls.js";
 
 export { ExpectError } from "./matchers/error.js";
+export type { ArgMatcher, ToolCallOrderStep } from "./matchers/toolCalls.js";
 
 export interface Expectation {
   readonly turns: NumericIntMatchers;
   readonly durationMs: NumericIntMatchers;
-  readonly toolCalls: NumericIntMatchers;
+  readonly toolCalls: ToolCallsMatchers;
   readonly usage: {
     readonly inputTokens: NumericIntMatchers;
     readonly outputTokens: NumericIntMatchers;
@@ -61,10 +63,10 @@ class ExpectationImpl implements Expectation {
     return new NumericIntMatchers("durationMs", this.result.metrics.durationMs);
   }
 
-  get toolCalls(): NumericIntMatchers {
+  get toolCalls(): ToolCallsMatchers {
     this.ensureFinished();
     const calls = this.result.metrics.toolCalls ?? [];
-    return new NumericIntMatchers("toolCalls", calls.length);
+    return new ToolCallsMatchers(calls);
   }
 
   get usage(): {

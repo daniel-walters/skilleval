@@ -19,4 +19,7 @@ export type {
   Outcomes,
   FileOutcome,
   EvalInfo,
+  ToolCall,
+  ToolCallStatus,
 } from "./result.js";
+export type { ArgMatcher, ToolCallOrderStep } from "./expect.js";
