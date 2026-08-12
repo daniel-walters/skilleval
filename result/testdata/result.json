@@ -20,11 +20,13 @@
     "toolCalls": [
       {
         "name": "read",
-        "status": "completed"
+        "status": "completed",
+        "args": { "path": "src/foo.go" }
       },
       {
         "name": "edit",
-        "status": "completed"
+        "status": "completed",
+        "args": { "path": "src/foo.go" }
       }
     ],
     "usage": {

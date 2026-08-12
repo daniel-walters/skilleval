@@ -43,6 +43,8 @@ export interface Metrics {
 export interface ToolCall {
   name: string;
   status: ToolCallStatus;
+  /** Lean pre-call args (path, command, other small scalars). */
+  args?: Record<string, string | number | boolean | null>;
 }
 
 export interface Usage {

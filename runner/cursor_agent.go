@@ -16,7 +16,7 @@ import (
 	"github.com/daniel-walters/skilleval/skill"
 )
 
-//go:embed cursoragent/run.mjs cursoragent/turns.mjs cursoragent/skills.mjs cursoragent/package.json cursoragent/package-lock.json
+//go:embed cursoragent/run.mjs cursoragent/turns.mjs cursoragent/skills.mjs cursoragent/package.json cursoragent/package-lock.json toolargs.mjs
 var cursorAssets embed.FS
 
 // CursorAgent invokes the embedded Node helper with @cursor/sdk.
@@ -145,8 +145,9 @@ type helperOutput struct {
 }
 
 type helperToolCall struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	Name   string         `json:"name"`
+	Status string         `json:"status"`
+	Args   map[string]any `json:"args,omitempty"`
 }
 
 func mapHelperOutput(raw helperOutput) AgentObservables {
@@ -171,7 +172,7 @@ func mapHelperOutput(raw helperOutput) AgentObservables {
 		default:
 			st = result.ToolCallCompleted
 		}
-		calls = append(calls, result.ToolCall{Name: c.Name, Status: st})
+		calls = append(calls, result.ToolCall{Name: c.Name, Status: st, Args: c.Args})
 	}
 	tools := raw.ToolsUsed
 	if tools == nil {
@@ -221,8 +222,12 @@ func prepareCursorHelperDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cursoragent: temp dir: %w", err)
 	}
-	for _, name := range []string{"run.mjs", "turns.mjs", "skills.mjs", "package.json", "package-lock.json"} {
-		data, err := cursorAssets.ReadFile("cursoragent/" + name)
+	for _, name := range []string{"run.mjs", "turns.mjs", "skills.mjs", "package.json", "package-lock.json", "toolargs.mjs"} {
+		src := "cursoragent/" + name
+		if name == "toolargs.mjs" {
+			src = "toolargs.mjs"
+		}
+		data, err := cursorAssets.ReadFile(src)
 		if err != nil {
 			return "", fmt.Errorf("cursoragent: embed %s: %w", name, err)
 		}

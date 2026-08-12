@@ -83,6 +83,9 @@ type Metrics struct {
 type ToolCall struct {
 	Name   string         `json:"name"`
 	Status ToolCallStatus `json:"status"`
+	// Args are lean pre-call arguments (path, command, and other small scalars).
+	// Large body fields are stripped by the runner. Omitted when empty.
+	Args map[string]any `json:"args,omitempty"`
 }
 
 // Usage is token accounting for the run.
