@@ -91,7 +91,7 @@ skilleval run ./eval.ts
 
 `run` returns `{ result, workspace, summary?, exitCode }`. A non-zero `exitCode` means the Go CLI failed YAML expects or a pass-rate gate after writing Result; Result is still returned so `expect()` can assert.
 
-Programmatic multi-run uses the same YAML fields as the CLI. Pass `attempts` and optional `passRate: { min }` (0–1) on `run({ … })`; `loadEval` preserves them on the typed document (the on-disk YAML still drives the CLI when using `sourcePath`).
+Programmatic multi-run uses the same YAML fields as the CLI. Pass `attempts` and optional `passRate: { min }` (0–1) on `run({ … })`; `loadEval` preserves them on the typed document (the on-disk YAML still drives the CLI when using `sourcePath`). Optional `replies: string[]` scripts mid-run user messages after the initial prompt (interactive skills; see root README).
 
 By default the Go CLI retains history under `.skilleval/history` and compares to the prior run when one exists. `run()` tees the Go CLI stdout and stderr to the Node process (PASS/FAIL, summary, `vs baseline:` diffs, and `agent running…` progress) while still capturing them for Result parsing and error messages. Colors follow TTY / `FORCE_COLOR` / `NO_COLOR` (same as the Go CLI). Pass `noHistory` / `noBaseline` for ephemeral runs, or `history` / `baseline` path overrides (same semantics as the CLI flags). Pass `timeout` (Go duration string, e.g. `"30m"`) to forward `--timeout` to the CLI.
 
