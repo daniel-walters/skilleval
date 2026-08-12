@@ -16,7 +16,7 @@ import (
 	"github.com/daniel-walters/skilleval/skill"
 )
 
-//go:embed cursoragent/run.mjs cursoragent/turns.mjs cursoragent/skills.mjs cursoragent/package.json cursoragent/package-lock.json toolargs.mjs agentlog.mjs
+//go:embed cursoragent/run.mjs cursoragent/turns.mjs cursoragent/skills.mjs cursoragent/package.json cursoragent/package-lock.json toolargs.mjs agentlog.mjs legagg.mjs
 var cursorAssets embed.FS
 
 // CursorAgent invokes the embedded Node helper with @cursor/sdk.
@@ -77,11 +77,14 @@ func (a *CursorAgent) Run(ctx context.Context, req AgentRequest) (AgentObservabl
 		node = "node"
 	}
 
-	cmd := exec.CommandContext(ctx, node, filepath.Join(helperDir, "run.mjs"),
+	args := []string{
+		filepath.Join(helperDir, "run.mjs"),
 		"--cwd", req.Workspace,
 		"--model", req.Model,
 		"--prompt", req.Prompt,
-	)
+	}
+	args = appendReplyArgs(args, req.Replies)
+	cmd := exec.CommandContext(ctx, node, args...)
 	cmd.Dir = helperDir
 	cmd.Env = os.Environ()
 	configureAgentCmd(cmd)
@@ -224,9 +227,9 @@ func prepareCursorHelperDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cursoragent: temp dir: %w", err)
 	}
-	for _, name := range []string{"run.mjs", "turns.mjs", "skills.mjs", "package.json", "package-lock.json", "toolargs.mjs", "agentlog.mjs"} {
+	for _, name := range []string{"run.mjs", "turns.mjs", "skills.mjs", "package.json", "package-lock.json", "toolargs.mjs", "agentlog.mjs", "legagg.mjs"} {
 		src := "cursoragent/" + name
-		if name == "toolargs.mjs" || name == "agentlog.mjs" {
+		if name == "toolargs.mjs" || name == "agentlog.mjs" || name == "legagg.mjs" {
 			src = name
 		}
 		data, err := cursorAssets.ReadFile(src)
