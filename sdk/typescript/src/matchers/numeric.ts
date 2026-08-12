@@ -83,6 +83,7 @@ export class NumericFloatMatchers {
         `${this.prefix}.${op}`,
         `${this.prefix} is unknown (nil), cannot satisfy ${op} bound`,
       );
+      return;
     }
     if (!pred(this.actual)) {
       fail(`${this.prefix}.${op}`, reason(this.actual));

@@ -191,6 +191,8 @@ Paths in the YAML are relative to the YAML file. Complete examples: `[examples/r
 
 Same catalog whether you write TypeScript or YAML. String matches are a literal or a slash-delimited regex (`/pattern/`). File paths are workspace-relative; optional `status` is `created` | `modified` | `deleted`.
 
+When multiple expects fail in one eval, skilleval **collects** every failure and reports the full list (YAML/CLI and TypeScript). The overall eval still fails if any expect fails. Non-finished runs still gate on `run.status` before other checks.
+
 Numeric bounds (`turns`, `durationMs`, `toolCalls`, `costUSD`, and `usage.*Tokens`):
 
 

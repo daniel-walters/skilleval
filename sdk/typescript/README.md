@@ -127,7 +127,7 @@ const { result, workspace } = await run(ev, { model: "composer-2.5" });
 
 Nil `costUSD` (unknown/unpriced model, or harness omit without a catalog hit) fails any cost bound — same as YAML expects.
 
-Non-`finished` results fail as `run.status` before other checks. Matchers throw `ExpectError` with checker-style `path` + `reason`.
+Expect failures are **collected**, not short-circuited: every failing matcher in an eval script is recorded, then the full list is printed on process exit (non-zero). Call `expect.report()` to throw an `ExpectError` with all pending failures immediately. Non-`finished` results still hard-fail as `run.status` before other checks. `ExpectError` exposes checker-style `path` + `reason` (first failure) and `failures` (the full list).
 
 ## Develop
 

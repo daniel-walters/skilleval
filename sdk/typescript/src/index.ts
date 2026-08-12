@@ -1,5 +1,5 @@
 export { expect, ExpectError } from "./expect.js";
-export type { Expectation } from "./expect.js";
+export type { Expectation, ExpectFailure } from "./expect.js";
 export { loadEval } from "./loadEval.js";
 export { run } from "./run.js";
 export type { RunResult } from "./run.js";

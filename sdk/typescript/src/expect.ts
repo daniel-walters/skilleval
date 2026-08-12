@@ -1,5 +1,11 @@
 import type { Result } from "./result.js";
-import { fail } from "./matchers/error.js";
+import {
+  clearFailures,
+  failHard,
+  peekFailures,
+  reportFailures,
+  type ExpectFailure,
+} from "./matchers/error.js";
 import { FileMatchers } from "./matchers/file.js";
 import { FinalMessageMatchers } from "./matchers/finalMessage.js";
 import { NumericFloatMatchers, NumericIntMatchers } from "./matchers/numeric.js";
@@ -7,6 +13,7 @@ import { SkillsActivatedMatchers, ToolsUsedMatchers } from "./matchers/sets.js";
 import { ToolCallsMatchers } from "./matchers/toolCalls.js";
 
 export { ExpectError } from "./matchers/error.js";
+export type { ExpectFailure } from "./matchers/error.js";
 export type { ArgMatcher, ToolCallOrderStep } from "./matchers/toolCalls.js";
 
 export interface Expectation {
@@ -27,16 +34,34 @@ export interface Expectation {
   file(relPath: string): FileMatchers;
 }
 
+export type ExpectFn = {
+  (result: Result, workspace?: string): Expectation;
+  /** Drain collected failures; throw ExpectError with the full list if any. */
+  report(): void;
+  /** Clear pending failures without throwing (tests). */
+  clear(): void;
+  /** Snapshot of pending failures. */
+  failures(): readonly ExpectFailure[];
+};
+
 /**
- * Typed expect matchers over a Result. Eager-throws ExpectError with
- * checker-style path + reason. Non-finished results fail as run.status
- * before any other check.
+ * Typed expect matchers over a Result. Failures are collected (not
+ * short-circuited) and reported together — via process beforeExit in eval
+ * scripts, or `expect.report()` for an immediate throw. Non-finished results
+ * hard-fail as run.status before any other check.
  *
  * @param workspace Attempt workspace path; required for file content matchers.
  */
-export function expect(result: Result, workspace?: string): Expectation {
-  return new ExpectationImpl(result, workspace);
-}
+export const expect: ExpectFn = Object.assign(
+  function expect(result: Result, workspace?: string): Expectation {
+    return new ExpectationImpl(result, workspace);
+  },
+  {
+    report: reportFailures,
+    clear: clearFailures,
+    failures: peekFailures,
+  },
+);
 
 class ExpectationImpl implements Expectation {
   constructor(
@@ -46,7 +71,7 @@ class ExpectationImpl implements Expectation {
 
   private ensureFinished(): void {
     if (this.result.status !== "finished") {
-      fail(
+      failHard(
         "run.status",
         `status is ${JSON.stringify(this.result.status)}, want "finished"`,
       );
