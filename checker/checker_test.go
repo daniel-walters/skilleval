@@ -78,6 +78,11 @@ func TestCheckFixtures(t *testing.T) {
 		{name: "fail-file-contains", wantPassed: false, wantFailPath: []string{"files[src/foo.go].contains"}},
 		{name: "fail-file-contains-regex", wantPassed: false, wantFailPath: []string{"files[src/foo.go].contains"}},
 		{
+			name:         "fail-file-excludes",
+			wantPassed:   false,
+			wantFailPath: []string{"files[src/foo.go].excludes", "files[src/foo.go].excludes"},
+		},
+		{
 			name:         "fail-many",
 			wantPassed:   false,
 			wantFailPath: []string{"turns.max", "costUSD.max", "finalMessage.contains"},

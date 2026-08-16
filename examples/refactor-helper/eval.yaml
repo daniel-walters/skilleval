@@ -34,6 +34,8 @@ expects:
     src/foo.go:
       status: modified
       contains: /func Foo/
+      excludes:
+        - TODO
     src/new.go:
       status: created
       contains: "package demo"

@@ -133,6 +133,9 @@ type FileExpect struct {
 	Status   result.FileStatus `yaml:"status,omitempty"`
 	Contains StringMatch       `yaml:"contains,omitempty"`
 	Equals   StringMatch       `yaml:"equals,omitempty"`
+	// Excludes lists string matches that must all be absent from the file body
+	// (literal or /regex/). Empty means no-op.
+	Excludes []StringMatch `yaml:"excludes,omitempty"`
 }
 
 // TextExpect checks finalMessage (or similar text fields).
@@ -292,6 +295,11 @@ func validateStringMatches(e *Eval, path string) error {
 		}
 		if err := compileStringMatch(&fe.Equals); err != nil {
 			return fmt.Errorf("eval: %s: files[%q].equals: invalid regex: %w", path, filePath, err)
+		}
+		for i := range fe.Excludes {
+			if err := compileStringMatch(&fe.Excludes[i]); err != nil {
+				return fmt.Errorf("eval: %s: files[%q].excludes: invalid regex: %w", path, filePath, err)
+			}
 		}
 		e.Expects.Files[filePath] = fe
 	}

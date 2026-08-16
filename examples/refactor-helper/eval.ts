@@ -33,7 +33,11 @@ expect(result).toolCalls.toIncludeInOrder([
   { name: "edit", args: { path: "src/foo.go" } },
 ]);
 expect(result).skills.activated.toInclude("refactor-helper");
-expect(result, workspace).file("src/foo.go").toHaveBeenModified().toContain(/func Foo/);
+expect(result, workspace)
+  .file("src/foo.go")
+  .toHaveBeenModified()
+  .toContain(/func Foo/)
+  .not.toContain("TODO");
 expect(result, workspace).file("src/new.go").toHaveBeenCreated().toContain("package demo");
 expect(result, workspace).file("src/gone.go").toHaveBeenDeleted();
 expect(result).finalMessage.toMatch(/Refactor/);

@@ -99,7 +99,8 @@ expect(result).skills.activated.toInclude("refactor-helper");
 expect(result, workspace)
   .file("src/foo.go")
   .toHaveBeenModified()
-  .toContain(/func Foo/);
+  .toContain(/func Foo/)
+  .not.toContain("TODO");
 expect(result, workspace)
   .file("src/new.go")
   .toHaveBeenCreated()
@@ -170,6 +171,8 @@ expects:
     src/foo.go:
       status: modified
       contains: /func Foo/
+      excludes:
+        - TODO
     src/new.go:
       status: created
       contains: "package demo"
@@ -224,7 +227,7 @@ The skill must complete a turn between interactions (ask, then stop). Worked exa
 
 ## Assertions
 
-Same catalog whether you write TypeScript or YAML. String matches are a literal or a slash-delimited regex (`/pattern/`). File paths are workspace-relative; optional `status` is `created` | `modified` | `deleted`.
+Same catalog whether you write TypeScript or YAML. String matches are a literal or a slash-delimited regex (`/pattern/`). File paths are workspace-relative; optional `status` is `created` | `modified` | `deleted`. File `contains` / `equals` and `excludes` (forbidden substrings or `/regex/`, YAML list or TypeScript `.not.toContain`) require a recorded, non-deleted file outcome — same gate for positive and negated content.
 
 When multiple expects fail in one eval, skilleval **collects** every failure and reports the full list (YAML/CLI and TypeScript). The overall eval still fails if any expect fails. Non-finished runs still gate on `run.status` before other checks.
 

@@ -399,6 +399,54 @@ expects:
 	}
 }
 
+func TestLoadFileExcludes(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  files:
+    a.go:
+      excludes:
+        - TODO
+        - /FIXME\d+/
+`)
+	e, err := eval.Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	fe := e.Expects.Files["a.go"]
+	if len(fe.Excludes) != 2 {
+		t.Fatalf("Excludes len = %d, want 2", len(fe.Excludes))
+	}
+	if fe.Excludes[0].String() != "TODO" || fe.Excludes[0].IsRegex() {
+		t.Fatalf("Excludes[0] = %q regex=%v", fe.Excludes[0].String(), fe.Excludes[0].IsRegex())
+	}
+	if fe.Excludes[1].String() != `/FIXME\d+/` || !fe.Excludes[1].IsRegex() {
+		t.Fatalf("Excludes[1] = %q regex=%v", fe.Excludes[1].String(), fe.Excludes[1].IsRegex())
+	}
+}
+
+func TestLoadRejectsInvalidFileExcludesRegex(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  files:
+    a.go:
+      excludes:
+        - /(/
+`)
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for invalid files[].excludes regex")
+	}
+	if !strings.Contains(err.Error(), `files["a.go"].excludes`) || !strings.Contains(err.Error(), "invalid regex") {
+		t.Fatalf("error = %v, want files[a.go].excludes invalid regex", err)
+	}
+}
+
 func assertGoldenEval(t *testing.T, e *eval.Eval) {
 	t.Helper()
 

@@ -76,7 +76,7 @@ expect(result).toolCalls.toIncludeInOrder([
   { name: "edit", args: { path: "src/foo.go" } },
 ]);
 expect(result).skills.activated.toInclude("refactor-helper");
-expect(result, workspace).file("src/foo.go").toHaveBeenModified().toContain(/func Foo/);
+expect(result, workspace).file("src/foo.go").toHaveBeenModified().toContain(/func Foo/).not.toContain("TODO");
 expect(result, workspace).file("src/new.go").toHaveBeenCreated().toContain("package demo");
 expect(result, workspace).file("src/gone.go").toHaveBeenDeleted();
 expect(result).finalMessage.toMatch(/Refactor/);
@@ -122,7 +122,7 @@ const { result, workspace } = await run(ev, { model: "composer-2.5" });
 | `usage.inputTokens` (and `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `totalTokens`) | same numeric matchers |
 | `toolsUsed` | `toInclude(...strings)`, `.not.toInclude(...strings)` |
 | `skills.activated` | `toInclude(...strings)`, `.not.toInclude(...strings)` |
-| `file(path)` | `toHaveStatus`, `toHaveBeenCreated` / `Modified` / `Deleted`, `toContain`, `toEqual` (pass `workspace` for content) |
+| `file(path)` | `toHaveStatus`, `toHaveBeenCreated` / `Modified` / `Deleted`, `toContain`, `toEqual`, `.not.toContain(...patterns)` (pass `workspace` for content) |
 | `finalMessage` | `toContain(string)`, `toMatch(RegExp)`, `toEqual(string \| RegExp)` |
 
 Nil `costUSD` (unknown/unpriced model, or harness omit without a catalog hit) fails any cost bound — same as YAML expects.
