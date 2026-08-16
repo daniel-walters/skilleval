@@ -1,0 +1,11 @@
+schemaVersion: 1
+name: pass-tool-calls-order-first-name
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  toolCalls:
+    order:
+      - name: [write, edit]
+        args:
+          path:
+            equals: src/foo.go
