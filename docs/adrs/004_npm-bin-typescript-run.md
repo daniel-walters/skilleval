@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. Cwd-to-eval-dir superseded by [009](009_ts-eval-invocation-cwd.md).
 
 ## Context
 

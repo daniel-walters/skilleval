@@ -76,7 +76,7 @@ Worked examples: [`examples/refactor-helper/`](../examples/refactor-helper/), [`
 
 ## Credentials and models
 
-cwd `.env` is loaded automatically; process env wins. Both runners also need Node.js for their embedded helpers.
+cwd `.env` is loaded automatically from the directory you invoke `skilleval` in (process env wins). TypeScript evals keep that directory — they do not chdir to the eval file. Both runners also need Node.js for their embedded helpers.
 
 
 | Runner | Env | Where to mint |
@@ -189,4 +189,4 @@ File `contains` / `equals` / `excludes` require a recorded, **non-deleted** file
 
 String matches: YAML is a literal or a slash-delimited **Go** regexp (`/pattern/`, e.g. `/(?i)deleted/`). TypeScript file/message matchers take a string (literal) or a **JavaScript** `RegExp` (`/deleted/i`). Do not copy `(?i)` into TypeScript or `/pattern/i` into YAML.
 
-TypeScript `run({ … })` writes `schemaVersion` for you. Relative `skill` / `input` / `mcp` paths resolve from the eval file’s directory.
+TypeScript `run({ … })` writes `schemaVersion` for you. Relative `skill` / `input` / `mcp` paths resolve from the eval file’s directory, not from process cwd.

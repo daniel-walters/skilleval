@@ -8,6 +8,7 @@ import {
   discoverEvalScripts,
   isScriptEvalPath,
 } from "./discover.js";
+import { SCRIPT_EVAL_DIR_ENV } from "./evalpath.js";
 
 const EXIT_OK = 0;
 const EXIT_FAIL = 1;
@@ -240,7 +241,11 @@ async function runOneScript(
   const fileDir = path.dirname(file);
   let code: number;
   try {
-    code = await spawnInherit(deps, command, args, { cwd: fileDir });
+    // Keep invocation cwd so `.env` and history match YAML. Point run() at
+    // the eval file for relative skill/input/mcp paths.
+    code = await spawnInherit(deps, command, args, {
+      env: { ...process.env, [SCRIPT_EVAL_DIR_ENV]: fileDir },
+    });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     deps.stderr(`skilleval: failed to run ${label}: ${detail}`);

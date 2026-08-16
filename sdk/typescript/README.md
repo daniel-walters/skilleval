@@ -7,7 +7,7 @@ YAML remains valid CLI authoring; this package is the typed alternative. Root au
 ## Prerequisites
 
 - Node.js 18+
-- Runner credentials (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`) in the process environment or a cwd `.env` — `run()` loads `.env` the same as the Go CLI (process env wins). Put `model` on the `run({ … })` call (or pass `--model` to the YAML CLI).
+- Runner credentials (`CURSOR_API_KEY` / `ANTHROPIC_API_KEY`) in the process environment or a `.env` in the directory you invoke `skilleval` from — `run()` loads `.env` the same as the Go CLI (process env wins). TypeScript evals do not chdir to the eval file. Put `model` on the `run({ … })` call (or pass `--model` to the YAML CLI).
 
 ## Install
 
@@ -40,7 +40,7 @@ TypeScript-only (no `tsx` on the eval file) — discovers `eval.{ts,mts,js,mjs}`
 }
 ```
 
-Put `model` on `run({ … })`. Script evals do not take Go CLI flags (`--model`, etc.). Relative `skill` / `input` paths resolve from the eval file’s directory (the process cwd when the script runs), so keep the script next to those folders or path relative to it. Resolution order for the Go binary: `SKILLEVAL_BIN` → packaged platform binary → `skilleval` on `PATH`.
+Put `model` on `run({ … })`. Script evals do not take Go CLI flags (`--model`, etc.). Relative `skill` / `input` paths resolve from the eval file’s directory, not from process cwd, so keep the script next to those folders or path relative to it. Resolution order for the Go binary: `SKILLEVAL_BIN` → packaged platform binary → `skilleval` on `PATH`.
 
 From a clone of this repo (development):
 

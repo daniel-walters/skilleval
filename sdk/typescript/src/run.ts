@@ -7,6 +7,7 @@ import { stringify as stringifyYaml } from "yaml";
 
 import { missingBinaryHint, resolveSkillevalBinary } from "./binary.js";
 import { loadDotEnv } from "./envfile.js";
+import { resolveEvalRel } from "./evalpath.js";
 import type { EvalDocument, PassRateExpect, RunOptions, RunOverrides } from "./evalTypes.js";
 import {
   expectAttempts,
@@ -56,8 +57,9 @@ type CliFlags = {
  * - `run(await loadEval(path), { model })` uses the loaded YAML file as-is.
  * - Objects with `sourcePath` (from `loadEval`) always use that file — never a temp rewrite.
  *
- * Loads cwd `.env` before spawning (missing file is fine; process env wins),
- * matching the Go CLI.
+ * Loads `.env` from process cwd before spawning (missing file is fine;
+ * process env wins), matching the Go CLI. Relative skill/input/mcp paths
+ * resolve from the eval file directory, not from cwd.
  */
 export async function run(opts: RunOptions): Promise<RunResult>;
 export async function run(ev: EvalDocument, opts: RunOverrides): Promise<RunResult>;
@@ -100,16 +102,16 @@ export async function resolveEvalAndFlags(
       schemaVersion: 1,
       name: opts.name,
       prompt: opts.prompt,
-      skill: path.resolve(opts.skill),
+      skill: resolveEvalRel(opts.skill),
     };
     if (opts.replies && opts.replies.length > 0) {
       doc.replies = opts.replies;
     }
     if (opts.input) {
-      doc.input = path.resolve(opts.input);
+      doc.input = resolveEvalRel(opts.input);
     }
     if (opts.mcp) {
-      doc.mcp = path.resolve(opts.mcp);
+      doc.mcp = resolveEvalRel(opts.mcp);
     }
     if (opts.attempts !== undefined && opts.attempts > 0) {
       doc.attempts = opts.attempts;
