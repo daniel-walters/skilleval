@@ -2,9 +2,10 @@
  * TypeScript authoring equivalent of eval.yaml.
  * Paths are relative to this directory (same as the YAML).
  *
- * Prerequisites: Node 18+, `@danielwaltersdev/skilleval` (ships platform CLI;
- * or SKILLEVAL_BIN / PATH). CURSOR_API_KEY (or ANTHROPIC_API_KEY) via process
- * env or cwd `.env` (`run()` loads `.env`).
+ * Prerequisites: Node 18+, `npm init -y && npm install @danielwaltersdev/skilleval`
+ * (or SKILLEVAL_BIN / PATH). CURSOR_API_KEY from https://cursor.com/dashboard/api
+ * (or ANTHROPIC_API_KEY) via process env or cwd `.env` (`run()` loads `.env`).
+ * First eval / tool names: docs/authoring.md.
  *
  *   skilleval run ./eval.ts
  *   skilleval run

@@ -2,7 +2,7 @@
 
 In-repo TypeScript client for [skilleval](https://github.com/daniel-walters/skilleval/blob/main/README.md#typescript). Runs evals through the Go `skilleval` CLI and asserts with typed `expect` matchers that mirror the shared YAML catalog.
 
-YAML remains valid CLI authoring; this package is the typed alternative. Root authoring docs (install → `run` → `expect`) live in the [README TypeScript section](https://github.com/daniel-walters/skilleval/blob/main/README.md#typescript). Full worked example: [`examples/refactor-helper/eval.ts`](https://github.com/daniel-walters/skilleval/blob/main/examples/refactor-helper/eval.ts).
+YAML remains valid CLI authoring; this package is the typed alternative. Root authoring docs (install → `run` → `expect`) live in the [README TypeScript section](https://github.com/daniel-walters/skilleval/blob/main/README.md#typescript). First eval, models, and tool names: [`docs/authoring.md`](https://github.com/daniel-walters/skilleval/blob/main/docs/authoring.md). Full worked example: [`examples/refactor-helper/eval.ts`](https://github.com/daniel-walters/skilleval/blob/main/examples/refactor-helper/eval.ts).
 
 ## Prerequisites
 
@@ -11,11 +11,14 @@ YAML remains valid CLI authoring; this package is the typed alternative. Root au
 
 ## Install
 
+From a new folder:
+
 ```bash
+npm init -y
 npm install @danielwaltersdev/skilleval
 ```
 
-That pulls in a platform optionalDependency (`@danielwaltersdev/skilleval-<os>-<arch>`) with the Go binary and links `skilleval` on `node_modules/.bin`. `run()` and `package.json` scripts use it automatically.
+That pulls in a platform optionalDependency (`@danielwaltersdev/skilleval-<os>-<arch>`) with the Go binary and links `skilleval` on `node_modules/.bin`. `tsx` ships with the package. `run()` and `package.json` scripts use the bin automatically. Mint `CURSOR_API_KEY` at [Dashboard → API Keys](https://cursor.com/dashboard/api); Claude uses `ANTHROPIC_API_KEY`. Model ids are runner-specific — see [docs/authoring.md](https://github.com/daniel-walters/skilleval/blob/main/docs/authoring.md#credentials-and-models).
 
 YAML:
 
