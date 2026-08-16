@@ -10,6 +10,7 @@ export type {
   RunOverrides,
 } from "./evalTypes.js";
 export type {
+  AttemptOutcome,
   Result,
   Summary,
   Status,
@@ -22,4 +23,9 @@ export type {
   ToolCall,
   ToolCallStatus,
 } from "./result.js";
-export type { ArgMatcher, ToolCallOrderStep } from "./expect.js";
+export type {
+  ArgMatcher,
+  AttemptExpectFn,
+  BatchExpectReport,
+  ToolCallOrderStep,
+} from "./expect.js";

@@ -13,7 +13,10 @@ export interface EvalDocument {
   input?: string;
   mcp?: string;
   attempts?: number;
-  /** Batch pass-rate gate (same shape as YAML passRate.min). */
+  /**
+   * Batch pass-rate gate for YAML (CLI checker) or TypeScript (`batch.expect`).
+   * Programmatic `run({ passRate })` is not written into temp YAML — TS owns that gate.
+   */
   passRate?: PassRateExpect;
   /**
    * Absolute path to the source YAML when loaded via loadEval.
@@ -37,6 +40,10 @@ export interface RunOptions {
   input?: string;
   mcp?: string;
   attempts?: number;
+  /**
+   * Minimum TS pass rate for `batch.expect` (0–1). Not forwarded to the CLI
+   * (empty YAML expects would make the CLI gate meaningless).
+   */
   passRate?: PassRateExpect;
   /** Required model id for the agent runner. */
   model: string;
