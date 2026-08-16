@@ -149,9 +149,10 @@ type helperOutput struct {
 }
 
 type helperToolCall struct {
-	Name   string         `json:"name"`
-	Status string         `json:"status"`
-	Args   map[string]any `json:"args,omitempty"`
+	Name     string         `json:"name"`
+	Status   string         `json:"status"`
+	Args     map[string]any `json:"args,omitempty"`
+	ExitCode *int           `json:"exitCode,omitempty"`
 }
 
 func mapHelperOutput(raw helperOutput) AgentObservables {
@@ -176,7 +177,7 @@ func mapHelperOutput(raw helperOutput) AgentObservables {
 		default:
 			st = result.ToolCallCompleted
 		}
-		calls = append(calls, result.ToolCall{Name: c.Name, Status: st, Args: c.Args})
+		calls = append(calls, result.ToolCall{Name: c.Name, Status: st, Args: c.Args, ExitCode: c.ExitCode})
 	}
 	tools := raw.ToolsUsed
 	if tools == nil {

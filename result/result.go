@@ -86,6 +86,9 @@ type ToolCall struct {
 	// Args are lean pre-call arguments (path, command, and other small scalars).
 	// Large body fields are stripped by the runner. Omitted when empty.
 	Args map[string]any `json:"args,omitempty"`
+	// ExitCode is the process status of a shell or Bash invocation.
+	// Omitted when the runner cannot observe it. Zero is encoded as 0, not omitted.
+	ExitCode *int `json:"exitCode,omitempty"`
 }
 
 // Usage is token accounting for the run.

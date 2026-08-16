@@ -123,6 +123,60 @@ func assertGoldenResult(t *testing.T, r result.Result) {
 	}
 }
 
+func TestToolCallExitCodeJSON(t *testing.T) {
+	zero := 0
+	one := 1
+	cases := []struct {
+		name string
+		call result.ToolCall
+		want string
+	}{
+		{
+			name: "omitted",
+			call: result.ToolCall{Name: "shell", Status: result.ToolCallCompleted},
+			want: `{"name":"shell","status":"completed"}`,
+		},
+		{
+			name: "zero",
+			call: result.ToolCall{Name: "shell", Status: result.ToolCallCompleted, ExitCode: &zero},
+			want: `{"name":"shell","status":"completed","exitCode":0}`,
+		},
+		{
+			name: "nonzero",
+			call: result.ToolCall{Name: "shell", Status: result.ToolCallCompleted, ExitCode: &one},
+			want: `{"name":"shell","status":"completed","exitCode":1}`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := json.Marshal(tc.call)
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			if string(raw) != tc.want {
+				t.Fatalf("marshal = %s, want %s", raw, tc.want)
+			}
+			var got result.ToolCall
+			if err := json.Unmarshal(raw, &got); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			if got.Name != tc.call.Name || got.Status != tc.call.Status {
+				t.Fatalf("got = %+v", got)
+			}
+			switch {
+			case tc.call.ExitCode == nil:
+				if got.ExitCode != nil {
+					t.Fatalf("ExitCode = %v, want nil", got.ExitCode)
+				}
+			case got.ExitCode == nil:
+				t.Fatal("ExitCode is nil")
+			case *got.ExitCode != *tc.call.ExitCode:
+				t.Fatalf("ExitCode = %d, want %d", *got.ExitCode, *tc.call.ExitCode)
+			}
+		})
+	}
+}
+
 func canonicalJSON(raw []byte) ([]byte, error) {
 	var v any
 	if err := json.Unmarshal(raw, &v); err != nil {
