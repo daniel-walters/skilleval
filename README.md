@@ -33,20 +33,22 @@ npm install @danielwaltersdev/skilleval
 
 That gives you the typed client and a platform `skilleval` binary. Node.js 18+.
 
-Credentials for live runs (cwd `.env` is loaded automatically; process env wins):
+Credentials for live runs (cwd `.env` is loaded automatically; process env wins). Both runners also need Node.js for their embedded helpers.
 
 
-| Runner                      | Env                                           |
-| --------------------------- | --------------------------------------------- |
-| Cursor (default)            | `CURSOR_API_KEY`                              |
-| Claude (`runner: "claude"`) | `ANTHROPIC_API_KEY` (or local `claude login`) |
+| Runner                      | Env                                           | Where to mint |
+| --------------------------- | --------------------------------------------- | ------------- |
+| Cursor (default)            | `CURSOR_API_KEY`                              | [Dashboard → API Keys](https://cursor.com/dashboard/api) |
+| Claude (`runner: "claude"`) | `ANTHROPIC_API_KEY` (or local `claude login`) | [Anthropic Console](https://console.anthropic.com/settings/keys) |
 
 
 ```bash
 echo 'CURSOR_API_KEY=...' > .env
 ```
 
-Prefer a standalone binary? Grab one from [GitHub Releases](https://github.com/daniel-walters/skilleval/releases), or `go install github.com/daniel-walters/skilleval/cmd/skilleval@v0.1.0`.
+`--model` is required and **runner-specific**: Cursor ids (`composer-2.5`, `auto`) are not Anthropic ids (`claude-sonnet-5`). First eval, tool names, and the YAML field list: [docs/authoring.md](docs/authoring.md).
+
+Prefer a standalone binary? Grab one from [GitHub Releases](https://github.com/daniel-walters/skilleval/releases), or `go install github.com/daniel-walters/skilleval/cmd/skilleval@v0.1.0`. The Go binary runs YAML only; TypeScript evals need the npm `skilleval` bin.
 
 ---
 
@@ -54,17 +56,24 @@ Prefer a standalone binary? Grab one from [GitHub Releases](https://github.com/d
 
 ## Write an eval
 
-Drop a skill package next to your eval (must contain `SKILL.md` with `name` / `description` frontmatter):
+From a new folder (TypeScript or the npm CLI). YAML-only with the Go binary can skip npm.
+
+```bash
+npm init -y
+npm install @danielwaltersdev/skilleval
+```
+
+Drop a skill package next to your eval (`SKILL.md` with a `name` in frontmatter; `description` recommended):
 
 ```text
 my-eval/
-  eval.ts
+  eval.ts              # or eval.yaml
   skills/my-skill/SKILL.md
-  fixtures/my-skill/   # optional; copied into the attempt workspace
+  fixtures/my-skill/   # optional; directory contents become the workspace
   mcp.json             # optional; native MCP config
 ```
 
-Optional `replies` (scripted mid-run user messages) are documented under [Interactive skills](#interactive-skills-replies).
+Start with `skills.activated`, run once, then add expects from `result.json` — [docs/authoring.md](docs/authoring.md). Optional `replies` (scripted mid-run user messages) are under [Interactive skills](#interactive-skills-replies).
 
 
 
@@ -198,10 +207,10 @@ expects:
 
 ```bash
 skilleval run ./eval.yaml --model composer-2.5
-skilleval run ./eval.yaml --model composer-2.5 --runner claude
+skilleval run ./eval.yaml --model claude-sonnet-5 --runner claude
 ```
 
-Paths in the YAML are relative to the YAML file. Complete examples: `[examples/refactor-helper/eval.yaml](examples/refactor-helper/eval.yaml)`, `[examples/mcp-ping/eval.yaml](examples/mcp-ping/eval.yaml)`, `[examples/interactive-confirm/eval.yaml](examples/interactive-confirm/eval.yaml)`.
+`--model` is required. YAML is not discovered by bare `skilleval run` — pass the path. Paths in the YAML are relative to the YAML file. Complete examples: `[examples/refactor-helper/eval.yaml](examples/refactor-helper/eval.yaml)`, `[examples/mcp-ping/eval.yaml](examples/mcp-ping/eval.yaml)`, `[examples/interactive-confirm/eval.yaml](examples/interactive-confirm/eval.yaml)`. Tool names differ by runner (`read` vs `Read`, `shell` vs `Bash`); see [docs/authoring.md](docs/authoring.md#tool-names).
 
 ### Interactive skills (`replies`)
 
@@ -272,7 +281,9 @@ A positive `exitCode` filter does not match a call with omitted `exitCode` (the 
 
 When the harness omits `costUSD`, skilleval estimates it from `cost/rates.json`. Unknown or unpriced models leave `costUSD` nil.
 
-Default artifacts from a CLI run: `result.json` (per attempt), `result-agent-log.json` (full turn/tool transcript beside that result), and `result-summary.json` (with `passRate` and averages). The agent log is written whenever a result is written (finished, error, or cancelled) for debugging — it is not an expect/assert surface. Optional `--timeout` bounds each attempt (Go duration, e.g. `30m`).
+Default artifacts from a CLI run: `result.json` (per attempt), `result-agent-log.json` (full turn/tool transcript beside that result), and `result-summary.json` (with `passRate` and averages). The agent log is written whenever a result is written (finished, error, or cancelled) for debugging — it is not an expect/assert surface. Use those artifacts to learn tool names and file outcomes before tightening expects ([docs/authoring.md](docs/authoring.md#inspect-then-add-expects)). Optional `--timeout` bounds each attempt (Go duration, e.g. `30m`).
+
+YAML string matches are Go regex (`/pattern/`, `/(?i)foo/`); TypeScript matchers use JavaScript `RegExp` (`/foo/i`). `skills.activated` means the runner observed the skill load (Cursor: a `read` of `SKILL.md`; Claude: the `Skill` tool) — not that the prompt named it.
 
 Eval and Result JSON use `schemaVersion: 1` — bumps only on a breaking contract change.
 
@@ -291,7 +302,7 @@ Pass a native MCP JSON file via `mcp` (TypeScript `run({ mcp: "…" })` or YAML 
 | Claude | `.mcp.json`        |
 
 
-Both runners load project MCP only, so host/global MCP does not leak in. Put stdio server scripts under `input` so paths resolve inside the workspace. Example: `[examples/mcp-ping/](examples/mcp-ping/)`.
+Both runners load project MCP only, so host/global MCP does not leak in. Put stdio server scripts under `input` so paths resolve inside the workspace. Example: `[examples/mcp-ping/](examples/mcp-ping/)` (`eval.yaml` and `eval.ts`).
 
 
 | Bucket                          | Local           | CI               |
@@ -396,6 +407,7 @@ In CI, upload `*-summary.json` as an artifact; on the next job, download the pri
 
 | Doc                                                  | Audience                                              |
 | ---------------------------------------------------- | ----------------------------------------------------- |
+| [docs/authoring.md](docs/authoring.md)               | First eval, models, tool names, YAML fields           |
 | [sdk/typescript/README.md](sdk/typescript/README.md) | Matcher catalog, bin resolution, local SDK develop    |
 | [docs/releasing.md](docs/releasing.md)               | Cutting CLI + npm releases                            |
 | [docs/development.md](docs/development.md)           | Building from source, CI, SDK pins, rate catalog sync |

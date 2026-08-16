@@ -58,11 +58,15 @@ const defaultHistoryDir = ".skilleval/history"
 
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `Usage:
-  skilleval run <eval.yaml> [--model ID] [--runner cursor|claude] [--out result.json]
+  skilleval run <eval.yaml> --model ID [--runner cursor|claude] [--out result.json]
                             [--timeout DURATION] [--history DIR] [--no-history]
                             [--baseline summary.json] [--no-baseline]
   skilleval compare <current-summary.json> <baseline-summary.json>
   skilleval version
+
+--model is required. This binary runs YAML evals only. The npm skilleval bin
+also runs eval.ts (put model on run({ … }); script evals do not take these flags).
+Bare "skilleval run" (npm) discovers TypeScript evals, not YAML.
 
 By default, run retains summaries under .skilleval/history and compares to
 that eval's latest.json when a prior run exists. Use --no-history / --no-baseline
@@ -72,7 +76,9 @@ to opt out; --baseline PATH overrides the auto baseline (e.g. CI artifacts).
 Credentials:
   Cursor runner: CURSOR_API_KEY from the process environment, or a .env
   file in the current directory (process environment wins if both are set).
+  Mint a key at https://cursor.com/dashboard/api
   Claude runner: ANTHROPIC_API_KEY, or an existing claude auth login.
+  --model is runner-specific (Cursor: composer-2.5; Claude: claude-sonnet-5).
   Both runners need Node.js for their embedded helpers.
 
 `)
