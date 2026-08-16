@@ -33,7 +33,7 @@ Manual bump: edit the pin in that helper’s `package.json`, run `npm install` t
 
 [`cost/rates.json`](../cost/rates.json) is the checked-in Cursor model rate table used when the harness omits `costUSD`. A weekly GitHub Action ([`.github/workflows/sync-cursor-rates.yml`](../.github/workflows/sync-cursor-rates.yml)) fetches [Cursor teams pricing](https://cursor.com/docs/account/teams/pricing), maps display names via [`cost/cursor_aliases.json`](../cost/cursor_aliases.json), and opens a review PR when the Cursor catalog (or `asOf`) would change. PRs are never auto-merged.
 
-The job uses `GITHUB_TOKEN` to open that PR. In repo **Settings → Actions → General**, enable **Allow GitHub Actions to create and approve pull requests** (new repos default this off).
+The job uses `GITHUB_TOKEN` to open that PR. In repo **Settings → Actions → General**, enable **Allow GitHub Actions to create and approve pull requests** (new repos default this off). CI downloads the pricing markdown with `curl -4` because GitHub-hosted runners 404 the docs CDN over IPv6.
 
 - Parse failures and unmapped display names fail the job; they do not invent model ids or rewrite the catalog
 - Known models missing from the docs page are kept (listed as stale candidates); removals need a human edit

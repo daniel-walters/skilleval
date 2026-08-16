@@ -25,7 +25,12 @@ jobs:
         id: sync
         run: |
           set -euo pipefail
-          summary="$(go run ./cmd/ratesync -write)"
+          pricing="${RUNNER_TEMP}/cursor-pricing.md"
+          curl -4 -fsSL \
+            -A "Mozilla/5.0 (compatible; skilleval-ratesync/1.0; +https://github.com/daniel-walters/skilleval)" \
+            -o "$pricing" \
+            "https://cursor.com/docs/account/teams/pricing.md"
+          summary="$(go run ./cmd/ratesync -write -markdown "$pricing")"
           echo "$summary"
           {
             echo "summary<<EOF"

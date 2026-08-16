@@ -21,6 +21,7 @@ func run(args []string) int {
 	ratesPath := fs.String("rates", "cost/rates.json", "path to rates.json")
 	aliasesPath := fs.String("aliases", "cost/cursor_aliases.json", "path to cursor display-name aliases")
 	sourceURL := fs.String("url", ratesync.DefaultSourceURL, "Cursor pricing markdown URL")
+	markdownPath := fs.String("markdown", "", "pricing markdown file (skip HTTP fetch)")
 	asOf := fs.String("asOf", "", "asOf date (YYYY-MM-DD); default UTC today when changed")
 	write := fs.Bool("write", false, "write rates.json when Cursor rates change")
 	if err := fs.Parse(args); err != nil {
@@ -41,10 +42,21 @@ func run(args []string) int {
 		}
 	}
 
+	var markdown string
+	if *markdownPath != "" {
+		b, err := os.ReadFile(*markdownPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ratesync: read markdown: %v\n", err)
+			return 1
+		}
+		markdown = string(b)
+	}
+
 	res, err := ratesync.Sync(context.Background(), ratesync.Options{
 		RatesPath:   rates,
 		AliasesPath: aliases,
 		SourceURL:   *sourceURL,
+		Markdown:    markdown,
 		AsOf:        *asOf,
 		Write:       *write,
 	})
