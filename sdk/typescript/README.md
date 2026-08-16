@@ -73,7 +73,7 @@ expect(result).costUSD.toBeLessThanOrEqual(1);
 expect(result).toolsUsed.toInclude("read", "edit").not.toInclude("web");
 expect(result).toolCalls.named("edit").toBeGreaterThanOrEqual(1);
 expect(result).toolCalls.toIncludeInOrder([
-  { name: "edit", args: { path: "src/foo.go" } },
+  { name: ["write", "edit"], args: { path: "src/foo.go" } },
 ]);
 expect(result).skills.activated.toInclude("refactor-helper");
 expect(result, workspace).file("src/foo.go").toHaveBeenModified().toContain(/func Foo/).not.toContain("TODO");
@@ -118,7 +118,7 @@ const { result, workspace } = await run(ev, { model: "composer-2.5" });
 | Namespace | Matchers |
 | --- | --- |
 | `turns` / `durationMs` / `costUSD` | `toBeLessThan`, `toBeLessThanOrEqual`, `toBeGreaterThan`, `toBeGreaterThanOrEqual`, `toBeEqual` |
-| `toolCalls` | same numeric matchers (total count); `named(tool)` → numeric count for that name; `toIncludeInOrder([{ name, args? }, …])` ordered subsequence (gaps allowed; string arg = equals, `RegExp` = match) |
+| `toolCalls` | same numeric matchers (total count); `named(tool)` → numeric count for that name; `toIncludeInOrder([{ name, args? }, …])` ordered subsequence (gaps allowed; `name` is one string or a nonempty list; string arg = equals, `RegExp` = match) |
 | `usage.inputTokens` (and `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `totalTokens`) | same numeric matchers |
 | `toolsUsed` | `toInclude(...strings)`, `.not.toInclude(...strings)` |
 | `skills.activated` | `toInclude(...strings)`, `.not.toInclude(...strings)` |
