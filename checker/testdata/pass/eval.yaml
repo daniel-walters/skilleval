@@ -17,6 +17,9 @@ expects:
     src/foo.go:
       status: modified
       contains: "func Foo"
+      excludes:
+        - TODO
+        - /FIXME\d+/
     src/new.go:
       status: created
       equals: "package main\n"

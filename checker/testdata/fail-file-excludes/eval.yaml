@@ -1,0 +1,12 @@
+schemaVersion: 1
+name: fail-file-excludes
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  files:
+    src/foo.go:
+      status: modified
+      contains: "func Foo"
+      excludes:
+        - TODO
+        - /FIXME\d+/

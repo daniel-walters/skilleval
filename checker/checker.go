@@ -411,11 +411,11 @@ func checkFiles(r *result.Result, files map[string]eval.FileExpect, workspace st
 			}
 		}
 
-		if !fe.Contains.IsSet() && !fe.Equals.IsSet() {
+		if !fe.Contains.IsSet() && !fe.Equals.IsSet() && len(fe.Excludes) == 0 {
 			continue
 		}
 		// Content expects require a recorded file change so pre-seeded input
-		// alone cannot satisfy contains/equals.
+		// alone cannot satisfy contains/equals/excludes.
 		if !ok {
 			failures = append(failures, Failure{
 				Path:   prefix,
@@ -439,6 +439,28 @@ func checkFiles(r *result.Result, files map[string]eval.FileExpect, workspace st
 			continue
 		}
 		failures = append(failures, checkTextExpects(body, fe.Contains, fe.Equals, prefix, "file", "file content")...)
+		failures = append(failures, checkFileExcludes(body, fe.Excludes, prefix)...)
+	}
+	return failures
+}
+
+func checkFileExcludes(body string, excludes []eval.StringMatch, pathPrefix string) []Failure {
+	if len(excludes) == 0 {
+		return nil
+	}
+	var failures []Failure
+	for _, m := range excludes {
+		if !m.IsSet() || !m.MatchContains(body) {
+			continue
+		}
+		reason := fmt.Sprintf("forbidden content %q was present", m.String())
+		if m.IsRegex() {
+			reason = fmt.Sprintf("forbidden content matched %s", m.String())
+		}
+		failures = append(failures, Failure{
+			Path:   pathPrefix + ".excludes",
+			Reason: reason,
+		})
 	}
 	return failures
 }
