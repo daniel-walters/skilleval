@@ -21,3 +21,11 @@ Forbidden members of a set observable (`toolsUsed`, `skills.activated`). Same po
 
 **String match**:
 Literal text, or a slash-delimited regex, used by contains / equals / file-content excludes.
+
+**Attempt**:
+One scheduled try of an eval. A batch may run many attempts; each produces its own Result or a runner error.
+_Avoid_: retry
+
+**Pass rate**:
+The fraction of attempts whose expects passed (`passed / attempts`). A batch may require a minimum pass rate.
+_Avoid_: success rate, accuracy
