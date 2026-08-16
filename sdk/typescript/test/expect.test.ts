@@ -274,6 +274,27 @@ describe("expect files", () => {
       "files[src/foo.go].contains",
     );
   });
+
+  it("passes file excludes on pass fixture", () => {
+    const r = loadResult("pass");
+    const ws = workspace("pass");
+    expect(r, ws).file("src/foo.go").not.toContain("TODO", /FIXME\d+/);
+  });
+
+  it("no-ops empty not.toContain", () => {
+    const r = loadResult("pass");
+    const ws = workspace("pass");
+    expect(r, ws).file("src/foo.go").not.toContain();
+  });
+
+  it("fails file excludes", () => {
+    const r = loadResult("fail-file-excludes");
+    const ws = workspace("fail-file-excludes");
+    assertFail(
+      () => expect(r, ws).file("src/foo.go").not.toContain("TODO", /FIXME\d+/),
+      "files[src/foo.go].excludes",
+    );
+  });
 });
 
 describe("expect finalMessage", () => {

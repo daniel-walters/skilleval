@@ -60,16 +60,36 @@ export class FileMatchers {
     return this;
   }
 
+  /**
+   * Negated contains: each pattern must be absent from the file body.
+   * Empty call is a no-op. Fail path: files[path].excludes.
+   */
+  get not(): { toContain: (...expected: StringOrRegexp[]) => FileMatchers } {
+    return {
+      toContain: (...expected: StringOrRegexp[]) => {
+        if (expected.length === 0) {
+          return this;
+        }
+        const body = this.readContentBody();
+        if (body === undefined) {
+          return this;
+        }
+        for (const pat of expected) {
+          if (!matchContains(body, pat)) {
+            continue;
+          }
+          const reason = isRegex(pat)
+            ? `forbidden content matched ${matchDisplay(pat)}`
+            : `forbidden content ${matchDisplay(pat)} was present`;
+          fail(`${this.prefix}.excludes`, reason);
+        }
+        return this;
+      },
+    };
+  }
+
   private assertContent(expected: StringOrRegexp, kind: "contains" | "equals"): void {
-    if (!this.outcome) {
-      fail(this.prefix, "path missing from outcomes.files");
-      return;
-    }
-    if (this.outcome.status === "deleted") {
-      fail(this.prefix, "content expects cannot be checked for a deleted file");
-      return;
-    }
-    const body = readWorkspaceFile(this.workspace, this.relPath);
+    const body = this.readContentBody();
     if (body === undefined) {
       return;
     }
@@ -88,6 +108,19 @@ export class FileMatchers {
         : "file content does not equal expected value";
       fail(`${this.prefix}.equals`, reason);
     }
+  }
+
+  /** Shared gate + read for positive/negated content expects. Soft-fails → undefined. */
+  private readContentBody(): string | undefined {
+    if (!this.outcome) {
+      fail(this.prefix, "path missing from outcomes.files");
+      return undefined;
+    }
+    if (this.outcome.status === "deleted") {
+      fail(this.prefix, "content expects cannot be checked for a deleted file");
+      return undefined;
+    }
+    return readWorkspaceFile(this.workspace, this.relPath);
   }
 }
 
