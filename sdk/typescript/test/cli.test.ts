@@ -182,20 +182,22 @@ describe("main routing", () => {
     assert.equal(out[0], "FAIL /no/such/eval.js");
   });
 
-  it("runs an explicit .js eval with cwd = file dir and prints PASS", async () => {
+  it("runs an explicit .js eval without chdir and prints PASS", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "skilleval-cli-"));
     const nested = path.join(root, "suite");
     await fs.mkdir(nested);
     const file = path.join(nested, "eval.js");
     await fs.writeFile(file, "process.exit(0);\n");
 
-    const calls: { cmd: string; args: string[]; cwd?: string }[] = [];
+    const calls: { cmd: string; args: string[]; cwd?: string; envDir?: string }[] = [];
     const out: string[] = [];
     const spawn: SpawnFn = ((cmd, args, opts) => {
+      const env = (opts as { env?: NodeJS.ProcessEnv } | undefined)?.env;
       calls.push({
         cmd: String(cmd),
         args: args as string[],
         cwd: (opts as { cwd?: string } | undefined)?.cwd,
+        envDir: env?.SKILLEVAL_EVAL_DIR,
       });
       return fakeChild(0);
     }) as SpawnFn;
@@ -211,7 +213,8 @@ describe("main routing", () => {
       });
       assert.equal(code, 0);
       assert.equal(calls.length, 1);
-      assert.equal(calls[0]!.cwd, nested);
+      assert.equal(calls[0]!.cwd, undefined);
+      assert.equal(calls[0]!.envDir, nested);
       assert.deepEqual(calls[0]!.args, [file]);
       assert.equal(out[0], `PASS ${path.relative(root, file)}`);
     } finally {

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import type { EvalDocument, RunOptions } from "../src/evalTypes.js";
@@ -11,6 +13,7 @@ import {
   shouldWriteTempEval,
   summaryOutPath,
 } from "../src/run.js";
+import { SCRIPT_EVAL_DIR_ENV } from "../src/evalpath.js";
 import {
   matchContains,
   matchEquals,
@@ -137,6 +140,37 @@ describe("resolveEvalAndFlags", () => {
     const { evalPath, passRate } = await resolveEvalAndFlags(ev, { model: "composer-2" });
     assert.equal(evalPath, "/abs/eval.yaml");
     assert.deepEqual(passRate, { min: 0.5 });
+  });
+
+  it("resolves relative skill/input from SKILLEVAL_EVAL_DIR, not cwd", async () => {
+    const prev = process.env[SCRIPT_EVAL_DIR_ENV];
+    const evalDir = await fs.mkdtemp(path.join(os.tmpdir(), "skilleval-evaldir-"));
+    process.env[SCRIPT_EVAL_DIR_ENV] = evalDir;
+    try {
+      const { evalPath, cleanup } = await resolveEvalAndFlags({
+        name: "n",
+        prompt: "p",
+        skill: "./skills/demo",
+        input: "./fixtures/demo",
+        model: "composer-2",
+      });
+      try {
+        const raw = await fs.readFile(evalPath, "utf8");
+        assert.ok(raw.includes(path.join(evalDir, "skills", "demo")));
+        assert.ok(raw.includes(path.join(evalDir, "fixtures", "demo")));
+      } finally {
+        if (cleanup) {
+          await fs.rm(cleanup, { recursive: true, force: true }).catch(() => undefined);
+        }
+      }
+    } finally {
+      if (prev === undefined) {
+        delete process.env[SCRIPT_EVAL_DIR_ENV];
+      } else {
+        process.env[SCRIPT_EVAL_DIR_ENV] = prev;
+      }
+      await fs.rm(evalDir, { recursive: true, force: true }).catch(() => undefined);
+    }
   });
 });
 

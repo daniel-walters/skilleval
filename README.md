@@ -33,7 +33,7 @@ npm install @danielwaltersdev/skilleval
 
 That gives you the typed client and a platform `skilleval` binary. Node.js 18+.
 
-Credentials for live runs (cwd `.env` is loaded automatically; process env wins). Both runners also need Node.js for their embedded helpers.
+Credentials for live runs (`.env` in the directory you run `skilleval` from is loaded automatically; process env wins). Both runners also need Node.js for their embedded helpers.
 
 
 | Runner                      | Env                                           | Where to mint |
