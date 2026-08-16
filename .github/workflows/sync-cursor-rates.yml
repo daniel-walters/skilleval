@@ -58,7 +58,7 @@ jobs:
           Automated update from Cursor teams pricing docs.
           EOF
           )"
-          git push -u origin "$branch" --force-with-lease
+          git push -u origin "$branch" --force
 
           open_count="$(gh pr list --state open --head "$branch" --json number --jq 'length')"
           if [ "$open_count" != "0" ]; then
