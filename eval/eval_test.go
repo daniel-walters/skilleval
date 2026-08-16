@@ -447,6 +447,90 @@ expects:
 	}
 }
 
+func TestLoadToolCallOrderNameList(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  toolCalls:
+    order:
+      - name: [write, edit]
+      - name: shell
+`)
+	e, err := eval.Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	order := e.Expects.ToolCalls.Order
+	if len(order) != 2 {
+		t.Fatalf("order len = %d", len(order))
+	}
+	if !order[0].Name.Match("write") || !order[0].Name.Match("edit") || order[0].Name.Match("read") {
+		t.Fatalf("order[0].Name = %v", order[0].Name)
+	}
+	if !order[1].Name.Match("shell") || order[1].Name.Match("edit") {
+		t.Fatalf("order[1].Name = %v", order[1].Name)
+	}
+}
+
+func TestLoadRejectsEmptyToolCallOrderNameList(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  toolCalls:
+    order:
+      - name: []
+`)
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for empty name list")
+	}
+	if !strings.Contains(err.Error(), "toolCalls.order[0]") || !strings.Contains(err.Error(), "name is required") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestLoadRejectsBlankToolCallOrderName(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  toolCalls:
+    order:
+      - name: "  "
+`)
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for blank name")
+	}
+	if !strings.Contains(err.Error(), "toolCalls.order[0]") || !strings.Contains(err.Error(), "name is required") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestLoadRejectsBlankNameInToolCallOrderList(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  toolCalls:
+    order:
+      - name: [write, ""]
+`)
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for blank name in list")
+	}
+	if !strings.Contains(err.Error(), "toolCalls.order[0]") || !strings.Contains(err.Error(), "name is required") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func assertGoldenEval(t *testing.T, e *eval.Eval) {
 	t.Helper()
 

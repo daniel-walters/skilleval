@@ -132,9 +132,9 @@ func checkToolCallOrder(calls []result.ToolCall, order []eval.ToolCallStepExpect
 			}
 		}
 		if !found {
-			reason := fmt.Sprintf("no matching tool call for order step %q", step.Name)
+			reason := fmt.Sprintf("no matching tool call for order step %s", step.Name)
 			if len(step.Args) > 0 {
-				reason = fmt.Sprintf("no matching tool call for order step %q with given args", step.Name)
+				reason = fmt.Sprintf("no matching tool call for order step %s with given args", step.Name)
 			}
 			return []Failure{{
 				Path:   fmt.Sprintf("toolCalls.order[%d]", stepIdx),
@@ -146,7 +146,7 @@ func checkToolCallOrder(calls []result.ToolCall, order []eval.ToolCallStepExpect
 }
 
 func toolCallMatchesStep(call result.ToolCall, step eval.ToolCallStepExpect) bool {
-	if call.Name != step.Name {
+	if !step.Name.Match(call.Name) {
 		return false
 	}
 	for key, ae := range step.Args {
