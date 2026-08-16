@@ -7,12 +7,23 @@ import { stringify as stringifyYaml } from "yaml";
 
 import { missingBinaryHint, resolveSkillevalBinary } from "./binary.js";
 import { loadDotEnv } from "./envfile.js";
-import type { EvalDocument, RunOptions, RunOverrides } from "./evalTypes.js";
-import type { Result, Summary } from "./result.js";
+import type { EvalDocument, PassRateExpect, RunOptions, RunOverrides } from "./evalTypes.js";
+import {
+  expectAttempts,
+  type AttemptExpectFn,
+  type BatchExpectReport,
+} from "./expect.js";
+import type { AttemptOutcome, Result, Summary } from "./result.js";
+
+export type { AttemptOutcome } from "./result.js";
 
 export interface RunResult {
   result: Result;
   workspace: string;
+  /** One slot per scheduled attempt (runner errors have `error`, no Result). */
+  attempts: AttemptOutcome[];
+  /** TS `batch.expect` gate; not the CLI YAML passRate for programmatic runs. */
+  passRate?: PassRateExpect;
   summary?: Summary;
   /**
    * Exit code from the skilleval process. Non-zero when the CLI failed YAML
@@ -20,6 +31,11 @@ export interface RunResult {
    * so `expect()` can assert (e.g. `run.status` on non-finished attempts).
    */
   exitCode: number;
+  /**
+   * Score TS expects on every attempt, then gate on `passRate.min` (default 1).
+   * Isolated per attempt so allowed flakes do not fail the process.
+   */
+  expect(fn: AttemptExpectFn): BatchExpectReport;
 }
 
 type CliFlags = {
@@ -50,9 +66,12 @@ export async function run(
   overrides?: RunOverrides,
 ): Promise<RunResult> {
   loadDotEnv();
-  const { evalPath, flags, cleanup } = await resolveEvalAndFlags(evalOrOpts, overrides);
+  const { evalPath, flags, cleanup, passRate } = await resolveEvalAndFlags(
+    evalOrOpts,
+    overrides,
+  );
   try {
-    return await invokeCli(evalPath, flags);
+    return await invokeCli(evalPath, flags, passRate);
   } finally {
     if (cleanup) {
       await fs.rm(cleanup, { recursive: true, force: true }).catch(() => undefined);
@@ -64,7 +83,12 @@ export async function run(
 export async function resolveEvalAndFlags(
   evalOrOpts: RunOptions | EvalDocument,
   overrides?: RunOverrides,
-): Promise<{ evalPath: string; flags: CliFlags; cleanup?: string }> {
+): Promise<{
+  evalPath: string;
+  flags: CliFlags;
+  cleanup?: string;
+  passRate?: PassRateExpect;
+}> {
   if (shouldWriteTempEval(evalOrOpts, overrides)) {
     const opts = evalOrOpts as RunOptions;
     if (typeof opts.model !== "string" || !opts.model) {
@@ -90,9 +114,6 @@ export async function resolveEvalAndFlags(
     if (opts.attempts !== undefined && opts.attempts > 0) {
       doc.attempts = opts.attempts;
     }
-    if (opts.passRate !== undefined) {
-      doc.passRate = opts.passRate;
-    }
     await fs.writeFile(evalPath, stringifyYaml(doc), "utf8");
     return {
       evalPath,
@@ -107,6 +128,7 @@ export async function resolveEvalAndFlags(
         timeout: opts.timeout,
       },
       cleanup: tmpDir,
+      passRate: opts.passRate,
     };
   }
 
@@ -132,6 +154,7 @@ export async function resolveEvalAndFlags(
       noBaseline: overrides?.noBaseline ?? readBoolField(evalOrOpts, "noBaseline"),
       timeout: overrides?.timeout ?? readStringField(evalOrOpts, "timeout"),
     },
+    passRate: ev.passRate,
   };
 }
 
@@ -195,7 +218,11 @@ export function appendReportFlags(
   }
 }
 
-async function invokeCli(evalPath: string, flags: CliFlags): Promise<RunResult> {
+async function invokeCli(
+  evalPath: string,
+  flags: CliFlags,
+  passRate?: PassRateExpect,
+): Promise<RunResult> {
   const bin = resolveSkillevalBinary();
   let outPath: string;
   let outCleanup: string | undefined;
@@ -219,14 +246,29 @@ async function invokeCli(evalPath: string, flags: CliFlags): Promise<RunResult> 
     const { stdout, stderr, code } = await spawnCapture(bin, args);
     const exitCode = code ?? 1;
 
-    const writes = parseWroteLines(stdout);
+    const slots = parseAttemptSlots(stdout);
+    const writes = slots.filter((s) => s.outPath);
     if (writes.length === 0) {
       const detail = stderr.trim() || stdout.trim() || `exit ${exitCode}`;
       throw new Error(`run: skilleval produced no Result (${detail})`);
     }
 
-    const last = writes[writes.length - 1]!;
-    const result = await readJson<Result>(last.outPath);
+    const attempts: AttemptOutcome[] = [];
+    for (const slot of slots) {
+      if (slot.outPath && slot.workspace) {
+        const result = await readJson<Result>(slot.outPath);
+        attempts.push({ result, workspace: slot.workspace });
+      } else {
+        attempts.push({ error: slot.error ?? "no Result" });
+      }
+    }
+
+    const lastWrite = lastSuccessfulAttempt(attempts);
+    if (!lastWrite) {
+      const detail = stderr.trim() || stdout.trim() || `exit ${exitCode}`;
+      throw new Error(`run: skilleval produced no Result (${detail})`);
+    }
+
     let summary: Summary | undefined;
     try {
       summary = await readJson<Summary>(summaryOutPath(outPath));
@@ -236,7 +278,14 @@ async function invokeCli(evalPath: string, flags: CliFlags): Promise<RunResult> 
 
     // Non-zero exit is expected when YAML expects / pass-rate fail after a
     // Result was written; still return so TS expect() can assert.
-    return { result, workspace: last.workspace, summary, exitCode };
+    return createRunResult({
+      result: lastWrite.result,
+      workspace: lastWrite.workspace,
+      attempts,
+      passRate,
+      summary,
+      exitCode,
+    });
   } finally {
     if (outCleanup) {
       await fs.rm(outCleanup, { recursive: true, force: true }).catch(() => undefined);
@@ -244,21 +293,115 @@ async function invokeCli(evalPath: string, flags: CliFlags): Promise<RunResult> 
   }
 }
 
+/** Build a RunResult with `expect` bound (exported for unit tests). */
+export function createRunResult(
+  base: Omit<RunResult, "expect">,
+): RunResult {
+  const runResult: RunResult = {
+    ...base,
+    expect(fn) {
+      return expectAttempts(runResult.attempts, fn, runResult.passRate);
+    },
+  };
+  return runResult;
+}
+
+function lastSuccessfulAttempt(
+  attempts: AttemptOutcome[],
+): { result: Result; workspace: string } | undefined {
+  for (let i = attempts.length - 1; i >= 0; i--) {
+    const a = attempts[i]!;
+    if (a.result !== undefined && a.workspace !== undefined) {
+      return { result: a.result, workspace: a.workspace };
+    }
+  }
+  return undefined;
+}
+
 interface WroteLine {
   outPath: string;
   workspace: string;
 }
 
+/** One parsed CLI attempt: a wrote Result, a runner error, or a gap. */
+export interface AttemptSlot {
+  attempt: number;
+  total: number;
+  outPath?: string;
+  workspace?: string;
+  error?: string;
+}
+
+/**
+ * Parse CLI stdout into N ordered attempt slots (wrote lines + `attempt i/n: error:`).
+ */
+export function parseAttemptSlots(stdout: string): AttemptSlot[] {
+  const byIndex = new Map<number, AttemptSlot>();
+  let total = 0;
+
+  const wroteRe =
+    /(?:attempt (\d+)\/(\d+): )?wrote (.+?) \(status=\w+ workspace=(\S+)(?: agentLog=\S+)?\)/g;
+  const unprefixed: { outPath: string; workspace: string }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = wroteRe.exec(stdout)) !== null) {
+    if (m[1] && m[2]) {
+      const attempt = Number(m[1]);
+      const n = Number(m[2]);
+      total = Math.max(total, n);
+      byIndex.set(attempt, {
+        attempt,
+        total: n,
+        outPath: m[3],
+        workspace: m[4],
+      });
+    } else {
+      unprefixed.push({ outPath: m[3]!, workspace: m[4]! });
+    }
+  }
+
+  const errRe = /attempt (\d+)\/(\d+): error: (.*)$/gm;
+  while ((m = errRe.exec(stdout)) !== null) {
+    const attempt = Number(m[1]);
+    const n = Number(m[2]);
+    total = Math.max(total, n);
+    byIndex.set(attempt, { attempt, total: n, error: m[3]!.trimEnd() });
+  }
+
+  if (byIndex.size === 0 && unprefixed.length > 0) {
+    total = unprefixed.length;
+    unprefixed.forEach((w, i) => {
+      byIndex.set(i + 1, {
+        attempt: i + 1,
+        total,
+        outPath: w.outPath,
+        workspace: w.workspace,
+      });
+    });
+  }
+
+  if (total === 0) {
+    return [];
+  }
+
+  const slots: AttemptSlot[] = [];
+  for (let i = 1; i <= total; i++) {
+    const existing = byIndex.get(i);
+    if (existing) {
+      slots.push({ ...existing, total });
+    } else {
+      slots.push({ attempt: i, total, error: "no Result" });
+    }
+  }
+  return slots;
+}
+
 /** Parse CLI stdout lines like: wrote <path> (status=finished workspace=/tmp/... [agentLog=...]) */
 export function parseWroteLines(stdout: string): WroteLine[] {
-  const re =
-    /(?:attempt \d+\/\d+: )?wrote (.+?) \(status=\w+ workspace=(\S+)(?: agentLog=\S+)?\)/g;
-  const out: WroteLine[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(stdout)) !== null) {
-    out.push({ outPath: m[1]!, workspace: m[2]! });
-  }
-  return out;
+  return parseAttemptSlots(stdout)
+    .filter((s): s is AttemptSlot & { outPath: string; workspace: string } =>
+      Boolean(s.outPath && s.workspace),
+    )
+    .map((s) => ({ outPath: s.outPath, workspace: s.workspace }));
 }
 
 export function summaryOutPath(outPath: string): string {

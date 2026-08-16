@@ -71,6 +71,41 @@ export function peekFailures(): readonly ExpectFailure[] {
 }
 
 /**
+ * Run fn against a fresh failure bag, then restore the previous bag.
+ * Soft matcher failures and thrown ExpectError (failHard / report) are
+ * returned as the isolated list; other throws propagate.
+ */
+export function withIsolatedFailures(fn: () => void): ExpectFailure[] {
+  const previous = bag.splice(0, bag.length);
+  try {
+    fn();
+    return bag.splice(0, bag.length);
+  } catch (err) {
+    const isolated = bag.splice(0, bag.length);
+    if (err instanceof ExpectError) {
+      return mergeFailures(isolated, err.failures);
+    }
+    throw err;
+  } finally {
+    bag.length = 0;
+    bag.push(...previous);
+  }
+}
+
+function mergeFailures(
+  isolated: ExpectFailure[],
+  thrown: readonly ExpectFailure[],
+): ExpectFailure[] {
+  const out = isolated.slice();
+  for (const f of thrown) {
+    if (!out.some((x) => x.path === f.path && x.reason === f.reason)) {
+      out.push(f);
+    }
+  }
+  return out;
+}
+
+/**
  * Drain the bag; if any failures were collected, throw ExpectError with all of them.
  * Prevents the beforeExit handler from printing the same list.
  */

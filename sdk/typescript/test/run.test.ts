@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import type { EvalDocument, RunOptions } from "../src/evalTypes.js";
 import {
   appendReportFlags,
+  parseAttemptSlots,
   parseWroteLines,
   resolveEvalAndFlags,
   shouldWriteTempEval,
@@ -102,6 +103,41 @@ describe("resolveEvalAndFlags", () => {
       }
     }
   });
+
+  it("writes attempts into temp YAML and omits passRate", async () => {
+    const { evalPath, cleanup, passRate } = await resolveEvalAndFlags({
+      name: "n",
+      prompt: "p",
+      skill: "./skill",
+      model: "composer-2",
+      attempts: 10,
+      passRate: { min: 0.8 },
+    });
+    try {
+      const raw = await fs.readFile(evalPath, "utf8");
+      assert.match(raw, /attempts: 10/);
+      assert.doesNotMatch(raw, /passRate/);
+      assert.deepEqual(passRate, { min: 0.8 });
+    } finally {
+      if (cleanup) {
+        await fs.rm(cleanup, { recursive: true, force: true }).catch(() => undefined);
+      }
+    }
+  });
+
+  it("returns passRate from a loaded eval without rewriting YAML", async () => {
+    const ev: EvalDocument = {
+      schemaVersion: 1,
+      name: "n",
+      prompt: "p",
+      skill: "./skill",
+      sourcePath: "/abs/eval.yaml",
+      passRate: { min: 0.5 },
+    };
+    const { evalPath, passRate } = await resolveEvalAndFlags(ev, { model: "composer-2" });
+    assert.equal(evalPath, "/abs/eval.yaml");
+    assert.deepEqual(passRate, { min: 0.5 });
+  });
 });
 
 describe("parseWroteLines", () => {
@@ -138,6 +174,42 @@ FAIL
   it("ignores summary-only wrote lines without workspace", () => {
     const stdout = `wrote /tmp/result-summary.json\n`;
     assert.equal(parseWroteLines(stdout).length, 0);
+  });
+});
+
+describe("parseAttemptSlots", () => {
+  it("parses mixed wrote and error lines into N slots", () => {
+    const stdout = `
+attempt 1/3: wrote /tmp/result-1.json (status=finished workspace=/tmp/w1)
+PASS
+attempt 2/3: error: agent crashed
+attempt 3/3: wrote /tmp/result-3.json (status=finished workspace=/tmp/w3)
+PASS
+`;
+    const slots = parseAttemptSlots(stdout);
+    assert.equal(slots.length, 3);
+    assert.equal(slots[0]!.outPath, "/tmp/result-1.json");
+    assert.equal(slots[0]!.workspace, "/tmp/w1");
+    assert.equal(slots[1]!.error, "agent crashed");
+    assert.equal(slots[1]!.outPath, undefined);
+    assert.equal(slots[2]!.outPath, "/tmp/result-3.json");
+  });
+
+  it("fills missing attempt indexes as no Result", () => {
+    const stdout = `attempt 1/3: wrote /tmp/result-1.json (status=finished workspace=/tmp/w1)
+attempt 3/3: wrote /tmp/result-3.json (status=finished workspace=/tmp/w3)
+`;
+    const slots = parseAttemptSlots(stdout);
+    assert.equal(slots.length, 3);
+    assert.equal(slots[1]!.error, "no Result");
+  });
+
+  it("treats unprefixed wrote lines as a single attempt", () => {
+    const stdout = `wrote /tmp/out/result.json (status=finished workspace=/tmp/w)\n`;
+    const slots = parseAttemptSlots(stdout);
+    assert.equal(slots.length, 1);
+    assert.equal(slots[0]!.attempt, 1);
+    assert.equal(slots[0]!.outPath, "/tmp/out/result.json");
   });
 });
 
