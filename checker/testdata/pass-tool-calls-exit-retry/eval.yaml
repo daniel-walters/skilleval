@@ -1,0 +1,12 @@
+schemaVersion: 1
+name: pass-tool-calls-exit-retry
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  toolCalls:
+    order:
+      - name: shell
+        args:
+          command:
+            contains: go test
+        exitCode: 0

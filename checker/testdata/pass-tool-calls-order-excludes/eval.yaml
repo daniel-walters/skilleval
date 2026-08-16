@@ -1,0 +1,12 @@
+schemaVersion: 1
+name: pass-tool-calls-order-excludes
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  toolCalls:
+    orderExcludes:
+      - name: shell
+        args:
+          command:
+            contains: rm -rf
+        exitCode: 0

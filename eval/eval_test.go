@@ -474,6 +474,128 @@ expects:
 	}
 }
 
+func TestLoadToolCallOrderExitCode(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  toolCalls:
+    order:
+      - name: [shell, Bash]
+        args:
+          command:
+            contains: go test
+        exitCode: 0
+      - name: shell
+        exitCode: [0, 1]
+    orderExcludes:
+      - name: shell
+        args:
+          command:
+            contains: rm -rf
+        exitCode: 0
+`)
+	e, err := eval.Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	order := e.Expects.ToolCalls.Order
+	if order[0].ExitCode == nil || !order[0].ExitCode.Match(intPtr(0)) || order[0].ExitCode.Match(intPtr(1)) {
+		t.Fatalf("order[0].ExitCode = %v", order[0].ExitCode)
+	}
+	if order[1].ExitCode == nil || !order[1].ExitCode.Match(intPtr(0)) || !order[1].ExitCode.Match(intPtr(1)) {
+		t.Fatalf("order[1].ExitCode = %v", order[1].ExitCode)
+	}
+	ex := e.Expects.ToolCalls.OrderExcludes
+	if len(ex) != 1 || ex[0].ExitCode == nil || !ex[0].ExitCode.Match(intPtr(0)) {
+		t.Fatalf("orderExcludes = %+v", ex)
+	}
+}
+
+func TestLoadRejectsEmptyToolCallExitCode(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  toolCalls:
+    order:
+      - name: shell
+        exitCode: []
+`)
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for empty exitCode")
+	}
+	if !strings.Contains(err.Error(), "toolCalls.order[0].exitCode") || !strings.Contains(err.Error(), "must not be empty") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestLoadRejectsNonIntegerToolCallExitCode(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  toolCalls:
+    order:
+      - name: shell
+        exitCode: 1.5
+`)
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for non-integer exitCode")
+	}
+	if !strings.Contains(err.Error(), "integer") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestLoadRejectsExitCodeOnNonShell(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  toolCalls:
+    order:
+      - name: edit
+        exitCode: 0
+`)
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for exitCode on edit")
+	}
+	if !strings.Contains(err.Error(), "toolCalls.order[0]") || !strings.Contains(err.Error(), "edit") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestLoadRejectsEmptyOrderExcludesName(t *testing.T) {
+	path := writeTempEvalWithSkill(t, `schemaVersion: 1
+name: x
+prompt: p
+skill: skill-dir
+expects:
+  toolCalls:
+    orderExcludes:
+      - name: []
+`)
+	_, err := eval.Load(path)
+	if err == nil {
+		t.Fatal("expected error for empty exclude name")
+	}
+	if !strings.Contains(err.Error(), "toolCalls.orderExcludes[0]") || !strings.Contains(err.Error(), "name is required") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func intPtr(n int) *int {
+	return &n
+}
+
 func TestLoadRejectsEmptyToolCallOrderNameList(t *testing.T) {
 	path := writeTempEvalWithSkill(t, `schemaVersion: 1
 name: x

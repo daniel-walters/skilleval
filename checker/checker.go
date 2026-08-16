@@ -114,6 +114,7 @@ func checkToolCalls(r *result.Result, e *eval.ToolCallsExpect) []Failure {
 		})...)
 	}
 	failures = append(failures, checkToolCallOrder(calls, e.Order)...)
+	failures = append(failures, checkToolCallOrderExcludes(calls, e.OrderExcludes)...)
 	return failures
 }
 
@@ -132,20 +133,84 @@ func checkToolCallOrder(calls []result.ToolCall, order []eval.ToolCallStepExpect
 			}
 		}
 		if !found {
-			reason := fmt.Sprintf("no matching tool call for order step %s", step.Name)
-			if len(step.Args) > 0 {
-				reason = fmt.Sprintf("no matching tool call for order step %s with given args", step.Name)
-			}
 			return []Failure{{
 				Path:   fmt.Sprintf("toolCalls.order[%d]", stepIdx),
-				Reason: reason,
+				Reason: unmatchedOrderStepReason(step),
 			}}
 		}
 	}
 	return nil
 }
 
+func unmatchedOrderStepReason(step eval.ToolCallStepExpect) string {
+	reason := fmt.Sprintf("no matching tool call for order step %s", step.Name)
+	hasArgs := len(step.Args) > 0
+	hasExit := step.ExitCode != nil
+	switch {
+	case hasArgs && hasExit:
+		return reason + " with given args and exit code"
+	case hasArgs:
+		return reason + " with given args"
+	case hasExit:
+		return reason + " with given exit code"
+	default:
+		return reason
+	}
+}
+
+func checkToolCallOrderExcludes(calls []result.ToolCall, excludes []eval.ToolCallStepExpect) []Failure {
+	if len(excludes) == 0 {
+		return nil
+	}
+	var failures []Failure
+	for i, step := range excludes {
+		matched := false
+		unknown := false
+		for _, call := range calls {
+			if !toolCallMatchesNameArgs(call, step) {
+				continue
+			}
+			if step.ExitCode == nil {
+				matched = true
+				continue
+			}
+			if call.ExitCode == nil {
+				unknown = true
+				continue
+			}
+			if step.ExitCode.Match(call.ExitCode) {
+				matched = true
+			}
+		}
+		path := fmt.Sprintf("toolCalls.orderExcludes[%d]", i)
+		if matched {
+			failures = append(failures, Failure{
+				Path:   path,
+				Reason: fmt.Sprintf("forbidden tool call matched order step %s", step.Name),
+			})
+			continue
+		}
+		if unknown {
+			failures = append(failures, Failure{
+				Path:   path,
+				Reason: "exitCode unknown, cannot assert absence",
+			})
+		}
+	}
+	return failures
+}
+
 func toolCallMatchesStep(call result.ToolCall, step eval.ToolCallStepExpect) bool {
+	if !toolCallMatchesNameArgs(call, step) {
+		return false
+	}
+	if step.ExitCode == nil {
+		return true
+	}
+	return step.ExitCode.Match(call.ExitCode)
+}
+
+func toolCallMatchesNameArgs(call result.ToolCall, step eval.ToolCallStepExpect) bool {
 	if !step.Name.Match(call.Name) {
 		return false
 	}
