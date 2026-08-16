@@ -220,6 +220,48 @@ describe("expect toolCalls order / named", () => {
       "toolCalls.order[0]",
     );
   });
+
+  it("matches the first name in a list", () => {
+    const r = loadResult("pass-tool-calls-order-first-name");
+    expect(r).toolCalls.toIncludeInOrder([
+      { name: ["write", "edit"], args: { path: "src/foo.go" } },
+    ]);
+  });
+
+  it("matches a later name in a list", () => {
+    const r = loadResult("pass-tool-calls-order-later-name");
+    expect(r).toolCalls.toIncludeInOrder([
+      { name: ["write", "edit"], args: { path: "src/foo.go" } },
+    ]);
+  });
+
+  it("fails when no name in the list matches", () => {
+    const r = loadResult("fail-tool-calls-order-names");
+    assertFail(
+      () =>
+        expect(r).toolCalls.toIncludeInOrder([
+          { name: ["write", "edit"], args: { path: "src/foo.go" } },
+        ]),
+      "toolCalls.order[0]",
+    );
+  });
+
+  it("throws for a blank name instead of failing the check", () => {
+    const r = loadResult("pass-tool-calls-order");
+    assert.throws(
+      () => expect(r).toolCalls.toIncludeInOrder([{ name: "" }]),
+      { message: "toIncludeInOrder: name is required" },
+    );
+  });
+
+  it("throws for an empty name list instead of failing the check", () => {
+    const r = loadResult("pass-tool-calls-order");
+    const empty = [] as unknown as [string, ...string[]];
+    assert.throws(
+      () => expect(r).toolCalls.toIncludeInOrder([{ name: empty }]),
+      { message: "toIncludeInOrder: name is required" },
+    );
+  });
 });
 
 describe("expect files", () => {
