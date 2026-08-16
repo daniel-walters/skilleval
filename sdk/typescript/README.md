@@ -89,7 +89,7 @@ cd examples/refactor-helper
 skilleval run ./eval.ts
 ```
 
-`run` returns `{ result, workspace, attempts, passRate?, summary?, exitCode, expect }`. `result` / `workspace` are the last successful write (single-attempt evals keep working). A non-zero `exitCode` means the Go CLI failed YAML expects or a YAML pass-rate gate after writing Result; Result is still returned so `expect()` can assert.
+`run` returns `{ result, workspace, attempts, passRate?, summary?, exitCode, expect }`. `result` / `workspace` are the last successful write (single-attempt evals keep working). A non-zero `exitCode` means the Go CLI failed YAML expects or a YAML pass-rate gate after writing Result; Result is still returned so `expect()` can assert. That CLI `exitCode` is not a shell tool’s process status — those live on `result.metrics.toolCalls[].exitCode` when observed.
 
 Programmatic multi-run: pass `attempts` on `run({ … })` so the CLI loops. Pass `passRate: { min }` (0–1) for the **TypeScript** gate — it is not copied into the temp YAML (no expects there). Then score every attempt with `batch.expect`:
 
@@ -135,7 +135,7 @@ const { result, workspace } = await run(ev, { model: "composer-2.5" });
 | Namespace | Matchers |
 | --- | --- |
 | `turns` / `durationMs` / `costUSD` | `toBeLessThan`, `toBeLessThanOrEqual`, `toBeGreaterThan`, `toBeGreaterThanOrEqual`, `toBeEqual` |
-| `toolCalls` | same numeric matchers (total count); `named(tool)` → numeric count for that name; `toIncludeInOrder([{ name, args? }, …])` ordered subsequence (gaps allowed; `name` is one string or a nonempty list; string arg = equals, `RegExp` = match) |
+| `toolCalls` | same numeric matchers (total count); `named(tool)` → numeric count for that name; `toIncludeInOrder([{ name, args?, exitCode? }, …])` ordered subsequence (gaps allowed; `name` is one string or a nonempty list; string arg = equals, `RegExp` = match; `exitCode` is one integer or a nonempty list, only for `shell` / `Bash`); `.not.toIncludeInOrder` forbids each step independently (YAML `orderExcludes`) |
 | `usage.inputTokens` (and `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `totalTokens`) | same numeric matchers |
 | `toolsUsed` | `toInclude(...strings)`, `.not.toInclude(...strings)` |
 | `skills.activated` | `toInclude(...strings)`, `.not.toInclude(...strings)` |
