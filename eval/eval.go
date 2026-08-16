@@ -81,7 +81,7 @@ type ToolCallsExpect struct {
 
 // ToolCallStepExpect matches one call in an ordered subsequence.
 type ToolCallStepExpect struct {
-	Name string               `yaml:"name"`
+	Name ToolCallNames        `yaml:"name"`
 	Args map[string]ArgExpect `yaml:"args,omitempty"`
 }
 
@@ -306,8 +306,8 @@ func validateStringMatches(e *Eval, path string) error {
 	if tc := e.Expects.ToolCalls; tc != nil {
 		for i := range tc.Order {
 			step := &tc.Order[i]
-			if strings.TrimSpace(step.Name) == "" {
-				return fmt.Errorf("eval: %s: toolCalls.order[%d]: name is required", path, i)
+			if err := step.Name.validate(); err != nil {
+				return fmt.Errorf("eval: %s: toolCalls.order[%d]: %w", path, i, err)
 			}
 			for argKey, ae := range step.Args {
 				if err := compileStringMatch(&ae.Contains); err != nil {

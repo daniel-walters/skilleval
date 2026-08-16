@@ -23,7 +23,7 @@ expects:
       edit:
         min: 1
     order:
-      - name: edit
+      - name: [write, edit]
         args:
           path:
             equals: src/foo.go

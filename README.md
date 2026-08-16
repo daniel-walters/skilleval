@@ -92,7 +92,7 @@ expect(result).costUSD.toBeLessThanOrEqual(1);
 expect(result).toolsUsed.toInclude("read", "edit").not.toInclude("web");
 expect(result).toolCalls.named("edit").toBeGreaterThanOrEqual(1);
 expect(result).toolCalls.toIncludeInOrder([
-  { name: "edit", args: { path: "src/foo.go" } },
+  { name: ["write", "edit"], args: { path: "src/foo.go" } },
   { name: "shell", args: { command: /git commit/ } },
 ]);
 expect(result).skills.activated.toInclude("refactor-helper");
@@ -160,7 +160,7 @@ expects:
       edit:
         min: 1
     order:
-      - name: edit
+      - name: [write, edit]
         args:
           path:
             equals: src/foo.go
@@ -249,7 +249,7 @@ Numeric bounds (`turns`, `durationMs`, `toolCalls`, `costUSD`, and `usage.*Token
 
 - **Total count** — same numeric bounds as above (`min` / `toBeGreaterThanOrEqual`, …)
 - **`named.<tool>`** — count bounds for one tool name (`named.edit.min` / `toolCalls.named("edit").toBeGreaterThanOrEqual(1)`)
-- **`order` / `toIncludeInOrder`** — ordered **subsequence** (gaps allowed before/between/after). Each step has `name` and optional `args`. YAML arg checks use `contains` / `equals` (literal or `/regex/`). In TypeScript, a string arg means equals and a `RegExp` means match.
+- **`order` / `toIncludeInOrder`** — ordered **subsequence** (gaps allowed before/between/after). Each step has `name` (one tool name or a nonempty list) and optional `args`. A list matches if the call name equals any of those names (exact). YAML arg checks use `contains` / `equals` (literal or `/regex/`). In TypeScript, a string arg means equals and a `RegExp` means match.
 
 Result `metrics.toolCalls` entries may include lean pre-call `args` (normalized `path` and `command`; large bodies stripped). Claude `file_path` is mapped to `path`, and `path` values under the attempt workspace are stored workspace-relative.
 

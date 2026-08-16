@@ -22,6 +22,22 @@ Forbidden members of a set observable (`toolsUsed`, `skills.activated`). Same po
 **String match**:
 Literal text, or a slash-delimited regex, used by contains / equals / file-content excludes.
 
+**Order step**:
+One check in a tool-call order expect.
+_Avoid_: alternation, sequence step
+
+**Names** (on an order step):
+The exact tool names that can satisfy an order step. The field is `name`. It holds one name or a list of names. A tool call matches if its tool name equals one of these names.
+_Avoid_: alternation, alias, pattern, or-match
+
+**Invalid expect**:
+An expect that is not well-formed. Example: an order step with no names, or a name with no text.
+_Avoid_: failed check
+
+**Failed check**:
+A valid expect that the result does not satisfy.
+_Avoid_: invalid expect, error
+
 **Attempt**:
 One scheduled try of an eval. A batch may run many attempts; each produces its own Result or a runner error.
 _Avoid_: retry
