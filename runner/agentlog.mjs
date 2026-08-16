@@ -4,6 +4,7 @@
  */
 
 import { normalizeToolArgs } from "./toolargs.mjs";
+import { exitCodeFromToolEvent } from "./exitcode.mjs";
 
 /**
  * @param {unknown[]} events
@@ -73,19 +74,24 @@ export function appendStreamEvent(events, event, cwd) {
   const status = event.status ?? "completed";
   const callId = event.call_id;
   const args = normalizeToolArgs(event.args, cwd);
+  const exitCode = exitCodeFromToolEvent(name, event);
   const entry = { type: "tool_call", name, status };
   if (args) entry.args = args;
+  if (typeof exitCode === "number") entry.exitCode = exitCode;
 
   if (callId) {
     for (let i = events.length - 1; i >= 0; i--) {
       const e = events[i];
       if (e?.type === "tool_call" && e.callId === callId) {
-        events[i] = {
+        const next = {
           ...e,
           name,
           status,
           args: args ?? e.args,
         };
+        const code = exitCode ?? e.exitCode;
+        if (typeof code === "number") next.exitCode = code;
+        events[i] = next;
         return;
       }
     }
@@ -94,11 +100,14 @@ export function appendStreamEvent(events, event, cwd) {
     for (let i = events.length - 1; i >= 0; i--) {
       const e = events[i];
       if (e?.type === "tool_call" && e.name === name && e.status === "running") {
-        events[i] = {
+        const next = {
           ...e,
           status,
           args: args ?? e.args,
         };
+        const code = exitCode ?? e.exitCode;
+        if (typeof code === "number") next.exitCode = code;
+        events[i] = next;
         return;
       }
     }
@@ -156,6 +165,8 @@ export function eventsFromConversation(conversation, prompt, cwd) {
         const entry = { type: "tool_call", name, status };
         const args = normalizeToolArgs(msg.args ?? msg.input, cwd);
         if (args) entry.args = args;
+        const exitCode = exitCodeFromToolEvent(name, msg);
+        if (typeof exitCode === "number") entry.exitCode = exitCode;
         events.push(entry);
       }
     }
@@ -190,7 +201,55 @@ export function appendClaudeMessage(events, message, cwd) {
       const entry = { type: "tool_call", name, status: "completed" };
       const args = normalizeToolArgs(block.input, cwd);
       if (args) entry.args = args;
+      if (block.id) entry.toolUseId = block.id;
       events.push(entry);
+    }
+  }
+}
+
+/**
+ * Attach integer exit codes from Claude tool_result blocks onto matching
+ * tool_use entries (by id). Mutates toolCalls and log events in place.
+ *
+ * @param {object[]} [toolCalls]
+ * @param {object[]} [events]
+ * @param {object} message
+ */
+export function applyClaudeUserToolResults(toolCalls, events, message) {
+  const content = message?.message?.content;
+  if (!Array.isArray(content)) return;
+  for (const block of content) {
+    if (!block || block.type !== "tool_result") continue;
+    const id = block.tool_use_id;
+    const fromCalls =
+      id && Array.isArray(toolCalls)
+        ? toolCalls.find((t) => t.id === id)?.name
+        : undefined;
+    const name = fromCalls ?? block.name;
+    const resultObj =
+      block.content && typeof block.content === "object" && !Array.isArray(block.content)
+        ? block.content
+        : undefined;
+    const code = exitCodeFromToolEvent(name, {
+      exitCode: block.exitCode,
+      exit_code: block.exit_code,
+      result: resultObj,
+    });
+    if (code === undefined) continue;
+    if (Array.isArray(toolCalls) && id) {
+      const idx = toolCalls.findIndex((t) => t.id === id);
+      if (idx >= 0) {
+        toolCalls[idx] = { ...toolCalls[idx], exitCode: code };
+      }
+    }
+    if (Array.isArray(events) && id) {
+      for (let i = events.length - 1; i >= 0; i--) {
+        const e = events[i];
+        if (e?.type === "tool_call" && e.toolUseId === id) {
+          events[i] = { ...e, exitCode: code };
+          break;
+        }
+      }
     }
   }
 }
@@ -208,7 +267,7 @@ export function finalizeLogEvents(events, runStatus) {
     runStatus === "error" || runStatus === "cancelled" ? "error" : "completed";
   return (events ?? []).map((e) => {
     if (!e || e.type !== "tool_call") return e;
-    const { callId, ...rest } = e;
+    const { callId, toolUseId, ...rest } = e;
     if (rest.status === "running") {
       rest.status = fallback;
     }

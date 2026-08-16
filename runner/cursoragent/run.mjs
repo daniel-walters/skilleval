@@ -15,6 +15,7 @@ const { Agent, CursorAgentError } = await import("@cursor/sdk");
 const { countTurns } = await import("./turns.mjs");
 const { noteActivatedSkill } = await import("./skills.mjs");
 const { normalizeToolArgs } = await import("./toolargs.mjs");
+const { exitCodeFromToolEvent } = await import("./exitcode.mjs");
 const {
   makeLog,
   userEvent,
@@ -55,18 +56,22 @@ function recordToolCall(toolCalls, toolsUsedSet, event, cwd) {
   const status = event.status ?? "completed";
   const callId = event.call_id;
   const args = normalizeToolArgs(event.args, cwd);
+  const exitCode = exitCodeFromToolEvent(name, event);
   toolsUsedSet.add(name);
 
   if (callId) {
     const idx = toolCalls.findIndex((t) => t.callId === callId);
     if (idx >= 0) {
       const prev = toolCalls[idx];
-      toolCalls[idx] = {
+      const next = {
         callId,
         name,
         status,
         args: args ?? prev.args,
       };
+      const code = exitCode ?? prev.exitCode;
+      if (typeof code === "number") next.exitCode = code;
+      toolCalls[idx] = next;
       return;
     }
   }
@@ -75,26 +80,34 @@ function recordToolCall(toolCalls, toolsUsedSet, event, cwd) {
   if (status !== "running") {
     for (let i = toolCalls.length - 1; i >= 0; i--) {
       if (toolCalls[i].name === name && toolCalls[i].status === "running") {
-        toolCalls[i] = {
+        const next = {
           callId: callId ?? toolCalls[i].callId,
           name,
           status,
           args: args ?? toolCalls[i].args,
         };
+        const code = exitCode ?? toolCalls[i].exitCode;
+        if (typeof code === "number") next.exitCode = code;
+        toolCalls[i] = next;
         return;
       }
     }
   }
 
-  toolCalls.push({ callId, name, status, args });
+  const row = { callId, name, status, args };
+  if (typeof exitCode === "number") row.exitCode = exitCode;
+  toolCalls.push(row);
 }
 
 /** Serialize tool calls for helper stdout (omit empty args). */
 function emitToolCalls(toolCalls) {
-  return toolCalls.map(({ name, status, args }) => {
+  return toolCalls.map(({ name, status, args, exitCode }) => {
     const out = { name, status };
     if (args && Object.keys(args).length > 0) {
       out.args = args;
+    }
+    if (typeof exitCode === "number") {
+      out.exitCode = exitCode;
     }
     return out;
   });

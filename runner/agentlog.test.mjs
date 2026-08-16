@@ -7,6 +7,7 @@ import {
   appendStreamEvent,
   eventsFromConversation,
   appendClaudeMessage,
+  applyClaudeUserToolResults,
   finalizeLogEvents,
   assistantTextFromStreamEvent,
 } from "./agentlog.mjs";
@@ -139,6 +140,34 @@ describe("appendStreamEvent", () => {
       { type: "tool_call", name: "read", status: "completed", args: { path: "x.go" } },
     ]);
   });
+
+  it("records shell exitCode on completed tool_call", () => {
+    const events = [];
+    appendStreamEvent(events, {
+      type: "tool_call",
+      call_id: "c1",
+      name: "shell",
+      status: "running",
+      args: { command: "go test" },
+    });
+    appendStreamEvent(events, {
+      type: "tool_call",
+      call_id: "c1",
+      name: "shell",
+      status: "completed",
+      result: { exitCode: 0 },
+    });
+    assert.equal(events[0].exitCode, 0);
+    assert.deepEqual(finalizeLogEvents(events, "finished"), [
+      {
+        type: "tool_call",
+        name: "shell",
+        status: "completed",
+        args: { command: "go test" },
+        exitCode: 0,
+      },
+    ]);
+  });
 });
 
 describe("finalizeLogEvents", () => {
@@ -170,6 +199,48 @@ describe("appendClaudeMessage", () => {
     assert.deepEqual(events.slice(1), [
       { type: "assistant", text: "Looking" },
       { type: "tool_call", name: "Read", status: "completed", args: { path: "a.ts" } },
+    ]);
+  });
+
+  it("applies Bash exitCode from tool_result onto the matching tool_use", () => {
+    const events = [];
+    const toolCalls = [];
+    appendClaudeMessage(events, {
+      type: "assistant",
+      message: {
+        content: [
+          {
+            type: "tool_use",
+            id: "tu1",
+            name: "Bash",
+            input: { command: "go test" },
+          },
+        ],
+      },
+    });
+    toolCalls.push({ id: "tu1", name: "Bash", status: "completed", args: { command: "go test" } });
+    applyClaudeUserToolResults(toolCalls, events, {
+      type: "user",
+      message: {
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: "tu1",
+            content: { exit_code: 0 },
+          },
+        ],
+      },
+    });
+    assert.equal(toolCalls[0].exitCode, 0);
+    assert.equal(events[0].exitCode, 0);
+    assert.deepEqual(finalizeLogEvents(events, "finished"), [
+      {
+        type: "tool_call",
+        name: "Bash",
+        status: "completed",
+        args: { command: "go test" },
+        exitCode: 0,
+      },
     ]);
   });
 });
