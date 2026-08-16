@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -107,9 +108,25 @@ func retryableStatus(code int) bool {
 	}
 }
 
+func defaultHTTPClient() *http.Client {
+	client := &http.Client{Timeout: 30 * time.Second}
+	t, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return client
+	}
+	transport := t.Clone()
+	dialer := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+	// GitHub-hosted runners often reach cursor.com over IPv6; the docs CDN 404s that path.
+	transport.DialContext = func(ctx context.Context, _, addr string) (net.Conn, error) {
+		return dialer.DialContext(ctx, "tcp4", addr)
+	}
+	client.Transport = transport
+	return client
+}
+
 func fetchMarkdown(ctx context.Context, client *http.Client, url string) (string, error) {
 	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second}
+		client = defaultHTTPClient()
 	}
 	var lastErr error
 	for attempt := 1; attempt <= fetchAttempts; attempt++ {
