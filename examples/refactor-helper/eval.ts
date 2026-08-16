@@ -41,3 +41,11 @@ expect(result, workspace)
 expect(result, workspace).file("src/new.go").toHaveBeenCreated().toContain("package demo");
 expect(result, workspace).file("src/gone.go").toHaveBeenDeleted();
 expect(result).finalMessage.toMatch(/Refactor/);
+
+// Multi-run: pass attempts (+ optional passRate.min) and score with batch.expect
+// so TS matchers apply to every attempt, not only the last Result:
+//
+// const batch = await run({ …, attempts: 10, passRate: { min: 0.8 } });
+// batch.expect(({ result, workspace }) => {
+//   expect(result, workspace).file("src/foo.go").toHaveBeenModified();
+// });

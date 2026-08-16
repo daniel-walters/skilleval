@@ -89,9 +89,26 @@ cd examples/refactor-helper
 skilleval run ./eval.ts
 ```
 
-`run` returns `{ result, workspace, summary?, exitCode }`. A non-zero `exitCode` means the Go CLI failed YAML expects or a pass-rate gate after writing Result; Result is still returned so `expect()` can assert.
+`run` returns `{ result, workspace, attempts, passRate?, summary?, exitCode, expect }`. `result` / `workspace` are the last successful write (single-attempt evals keep working). A non-zero `exitCode` means the Go CLI failed YAML expects or a YAML pass-rate gate after writing Result; Result is still returned so `expect()` can assert.
 
-Programmatic multi-run uses the same YAML fields as the CLI. Pass `attempts` and optional `passRate: { min }` (0–1) on `run({ … })`; `loadEval` preserves them on the typed document (the on-disk YAML still drives the CLI when using `sourcePath`). Optional `replies: string[]` scripts mid-run user messages after the initial prompt (interactive skills; see root README).
+Programmatic multi-run: pass `attempts` on `run({ … })` so the CLI loops. Pass `passRate: { min }` (0–1) for the **TypeScript** gate — it is not copied into the temp YAML (no expects there). Then score every attempt with `batch.expect`:
+
+```ts
+const batch = await run({
+  name: "refactor-helper",
+  prompt: "...",
+  skill: "./skills/refactor-helper",
+  model: "composer-2.5",
+  attempts: 10,
+  passRate: { min: 0.8 },
+});
+
+batch.expect(({ result, workspace }) => {
+  expect(result, workspace).turns.toBeLessThanOrEqual(15);
+});
+```
+
+`batch.expect` isolates matcher failures per attempt and fails the process only when the TS pass rate is below `min` (default **1** when `passRate` is omitted). Runner-error slots count as failed and skip the callback. `loadEval` preserves `attempts` / `passRate` on the typed document; the on-disk YAML still drives the CLI checker when using `sourcePath` (YAML expects stay CLI-owned). Optional `replies: string[]` scripts mid-run user messages after the initial prompt (interactive skills; see root README).
 
 By default the Go CLI retains history under `.skilleval/history` and compares to the prior run when one exists. `run()` tees the Go CLI stdout and stderr to the Node process (PASS/FAIL, summary, `vs baseline:` diffs, and `agent running…` progress) while still capturing them for Result parsing and error messages. Colors follow TTY / `FORCE_COLOR` / `NO_COLOR` (same as the Go CLI). Pass `noHistory` / `noBaseline` for ephemeral runs, or `history` / `baseline` path overrides (same semantics as the CLI flags). Pass `timeout` (Go duration string, e.g. `"30m"`) to forward `--timeout` to the CLI.
 

@@ -294,10 +294,10 @@ Interpolation: Cursor `${env:NAME}`, Claude `${VAR}`. Do not commit secrets in f
 
 ## Multi-run batches
 
-Set `attempts` (and optional `passRate.min`) on `run({ … })` or in YAML:
+YAML multi-run is scored by the CLI checker. TypeScript multi-run still asks the CLI to run N times, but **pass/fail lives in `batch.expect`** — programmatic `passRate` is not written into the temp YAML (empty YAML expects would always pass).
 
 ```ts
-await run({
+const batch = await run({
   name: "refactor-helper",
   prompt: "…",
   skill: "./skills/refactor-helper",
@@ -305,7 +305,14 @@ await run({
   attempts: 10,
   passRate: { min: 0.8 },
 });
+
+batch.expect(({ result, workspace }) => {
+  expect(result, workspace).turns.toBeLessThanOrEqual(15);
+  expect(result).finalMessage.toMatch(/Refactor/);
+});
 ```
+
+`batch.expect` isolates matcher failures per attempt, then fails the process only when the TS pass rate is below `passRate.min`. If `passRate` is omitted, the minimum is **1** (every attempt must pass) — unlike YAML, where omitting `passRate` does not fail the process.
 
 ```yaml
 attempts: 10
@@ -313,7 +320,9 @@ passRate:
   min: 0.8
 ```
 
-Each attempt gets its own Result. With `attempts > 1`, the CLI also writes `result-1.json` / `result-1-agent-log.json`, … and `result-summary.json`. Exit is non-zero only when `passRate.min` is set and the batch rate is below it — not fail-on-any-attempt. Single-attempt runs keep expect-based exit behavior.
+Each attempt gets its own Result. With `attempts > 1`, the CLI also writes `result-1.json` / `result-1-agent-log.json`, … and `result-summary.json`. YAML exit is non-zero only when `passRate.min` is set and the batch rate is below it — not fail-on-any-attempt. Single-attempt runs keep expect-based exit behavior. `run()` still returns `result` / `workspace` for the last successful write so one-shot `expect(result)` evals stay unchanged.
+
+YAML expects on a `loadEval` document are still scored by the CLI; `batch.expect` is the TypeScript-expects path. CLI stdout may print PASS for empty YAML expects; the `batch.expect` block is the TS score.
 
 ---
 

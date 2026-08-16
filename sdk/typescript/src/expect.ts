@@ -1,9 +1,12 @@
-import type { Result } from "./result.js";
+import type { PassRateExpect } from "./evalTypes.js";
+import type { AttemptOutcome, Result } from "./result.js";
 import {
   clearFailures,
+  fail,
   failHard,
   peekFailures,
   reportFailures,
+  withIsolatedFailures,
   type ExpectFailure,
 } from "./matchers/error.js";
 import { FileMatchers } from "./matchers/file.js";
@@ -44,6 +47,15 @@ export type ExpectFn = {
   failures(): readonly ExpectFailure[];
 };
 
+export type AttemptExpectFn = (ctx: { result: Result; workspace: string }) => void;
+
+/** TS-side batch score from `RunResult.expect` (not the CLI YAML summary). */
+export interface BatchExpectReport {
+  attempts: number;
+  passed: number;
+  passRate: number;
+}
+
 /**
  * Typed expect matchers over a Result. Failures are collected (not
  * short-circuited) and reported together — via process beforeExit in eval
@@ -62,6 +74,65 @@ export const expect: ExpectFn = Object.assign(
     failures: peekFailures,
   },
 );
+
+/**
+ * Apply `fn` to each attempt with an isolated failure bag, then gate on
+ * `passRate.min` (default 1). Per-attempt failures are printed; they are not
+ * left in the process bag when the batch meets the minimum. Below min, records
+ * `passRate.min` so beforeExit / `expect.report()` fail the process.
+ *
+ * `write` is for tests; defaults to stdout.
+ */
+export function expectAttempts(
+  attempts: readonly AttemptOutcome[],
+  fn: AttemptExpectFn,
+  passRate?: PassRateExpect,
+  write: (line: string) => void = (line) => console.log(line),
+): BatchExpectReport {
+  const n = attempts.length;
+  const min = passRate?.min ?? 1;
+  const failedIndexes: number[] = [];
+  let passed = 0;
+
+  for (let i = 0; i < n; i++) {
+    const slot = attempts[i]!;
+    const index = i + 1;
+    const failures = scoreAttempt(slot, fn);
+    if (failures.length === 0) {
+      passed++;
+      write(`attempt ${index}/${n}: PASS`);
+      continue;
+    }
+    failedIndexes.push(index);
+    write(`attempt ${index}/${n}: FAIL`);
+    for (const f of failures) {
+      write(`  ${f.path}: ${f.reason}`);
+    }
+  }
+
+  const rate = n === 0 ? 0 : passed / n;
+  write("---");
+  write(`passRate: ${rate} (${passed}/${n})`);
+
+  if (rate < min) {
+    const failed =
+      failedIndexes.length > 0 ? ` (failed attempts ${failedIndexes.join(", ")})` : "";
+    fail("passRate.min", `pass rate ${rate} below min ${min}${failed}`);
+  }
+
+  return { attempts: n, passed, passRate: rate };
+}
+
+function scoreAttempt(slot: AttemptOutcome, fn: AttemptExpectFn): ExpectFailure[] {
+  if (slot.error !== undefined || slot.result === undefined || slot.workspace === undefined) {
+    return [{ path: "run.error", reason: slot.error ?? "no Result" }];
+  }
+  const result = slot.result;
+  const workspace = slot.workspace;
+  return withIsolatedFailures(() => {
+    fn({ result, workspace });
+  });
+}
 
 class ExpectationImpl implements Expectation {
   constructor(

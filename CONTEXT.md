@@ -37,3 +37,11 @@ _Avoid_: failed check
 **Failed check**:
 A valid expect that the result does not satisfy.
 _Avoid_: invalid expect, error
+
+**Attempt**:
+One scheduled try of an eval. A batch may run many attempts; each produces its own Result or a runner error.
+_Avoid_: retry
+
+**Pass rate**:
+The fraction of attempts whose expects passed (`passed / attempts`). A batch may require a minimum pass rate.
+_Avoid_: success rate, accuracy

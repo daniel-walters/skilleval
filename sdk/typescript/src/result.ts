@@ -76,3 +76,11 @@ export interface Summary {
   avgCostUSD?: number;
   avgDurationMs?: number;
 }
+
+/**
+ * One scheduled attempt in a TS multi-run batch.
+ * Runner errors have no Result; wrote attempts have result + workspace.
+ */
+export type AttemptOutcome =
+  | { readonly result: Result; readonly workspace: string; readonly error?: undefined }
+  | { readonly result?: undefined; readonly workspace?: undefined; readonly error: string };
