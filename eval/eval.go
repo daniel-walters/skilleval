@@ -68,21 +68,23 @@ type TurnsExpect struct {
 }
 
 // ToolCallsExpect bounds total tool call count and optionally checks
-// ordered subsequences and per-name counts.
+// ordered subsequences, forbidden steps, and per-name counts.
 type ToolCallsExpect struct {
-	Min   *int                    `yaml:"min,omitempty"`
-	Max   *int                    `yaml:"max,omitempty"`
-	Gt    *int                    `yaml:"gt,omitempty"`
-	Lt    *int                    `yaml:"lt,omitempty"`
-	Eq    *int                    `yaml:"eq,omitempty"`
-	Order []ToolCallStepExpect    `yaml:"order,omitempty"`
-	Named map[string]*TurnsExpect `yaml:"named,omitempty"`
+	Min           *int                    `yaml:"min,omitempty"`
+	Max           *int                    `yaml:"max,omitempty"`
+	Gt            *int                    `yaml:"gt,omitempty"`
+	Lt            *int                    `yaml:"lt,omitempty"`
+	Eq            *int                    `yaml:"eq,omitempty"`
+	Order         []ToolCallStepExpect    `yaml:"order,omitempty"`
+	OrderExcludes []ToolCallStepExpect    `yaml:"orderExcludes,omitempty"`
+	Named         map[string]*TurnsExpect `yaml:"named,omitempty"`
 }
 
-// ToolCallStepExpect matches one call in an ordered subsequence.
+// ToolCallStepExpect matches one call (name, optional args, optional exit code).
 type ToolCallStepExpect struct {
-	Name ToolCallNames        `yaml:"name"`
-	Args map[string]ArgExpect `yaml:"args,omitempty"`
+	Name     ToolCallNames        `yaml:"name"`
+	Args     map[string]ArgExpect `yaml:"args,omitempty"`
+	ExitCode *ExitCodeExpect      `yaml:"exitCode,omitempty"`
 }
 
 // ArgExpect checks a single tool-call arg value (stringified if non-string).
@@ -304,20 +306,40 @@ func validateStringMatches(e *Eval, path string) error {
 		e.Expects.Files[filePath] = fe
 	}
 	if tc := e.Expects.ToolCalls; tc != nil {
-		for i := range tc.Order {
-			step := &tc.Order[i]
-			if err := step.Name.validate(); err != nil {
-				return fmt.Errorf("eval: %s: toolCalls.order[%d]: %w", path, i, err)
+		if err := validateToolCallSteps(tc.Order, path, "toolCalls.order"); err != nil {
+			return err
+		}
+		if err := validateToolCallSteps(tc.OrderExcludes, path, "toolCalls.orderExcludes"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateToolCallSteps(steps []ToolCallStepExpect, path, prefix string) error {
+	for i := range steps {
+		step := &steps[i]
+		if err := step.Name.validate(); err != nil {
+			return fmt.Errorf("eval: %s: %s[%d]: %w", path, prefix, i, err)
+		}
+		if step.ExitCode != nil {
+			if err := step.ExitCode.validate(); err != nil {
+				return fmt.Errorf("eval: %s: %s[%d].exitCode: %w", path, prefix, i, err)
 			}
-			for argKey, ae := range step.Args {
-				if err := compileStringMatch(&ae.Contains); err != nil {
-					return fmt.Errorf("eval: %s: toolCalls.order[%d].args[%q].contains: invalid regex: %w", path, i, argKey, err)
+			for _, name := range step.Name {
+				if !IsShellToolName(name) {
+					return fmt.Errorf("eval: %s: %s[%d]: exitCode is only valid for shell or Bash, not %q", path, prefix, i, name)
 				}
-				if err := compileStringMatch(&ae.Equals); err != nil {
-					return fmt.Errorf("eval: %s: toolCalls.order[%d].args[%q].equals: invalid regex: %w", path, i, argKey, err)
-				}
-				step.Args[argKey] = ae
 			}
+		}
+		for argKey, ae := range step.Args {
+			if err := compileStringMatch(&ae.Contains); err != nil {
+				return fmt.Errorf("eval: %s: %s[%d].args[%q].contains: invalid regex: %w", path, prefix, i, argKey, err)
+			}
+			if err := compileStringMatch(&ae.Equals); err != nil {
+				return fmt.Errorf("eval: %s: %s[%d].args[%q].equals: invalid regex: %w", path, prefix, i, argKey, err)
+			}
+			step.Args[argKey] = ae
 		}
 	}
 	return nil

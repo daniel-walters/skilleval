@@ -262,6 +262,89 @@ describe("expect toolCalls order / named", () => {
       { message: "toIncludeInOrder: name is required" },
     );
   });
+
+  it("matches shell exitCode 0", () => {
+    const r = loadResult("pass-tool-calls-exit-code");
+    expect(r).toolCalls.toIncludeInOrder([
+      { name: "shell", args: { command: /go test/ }, exitCode: 0 },
+    ]);
+  });
+
+  it("matches a later successful retry", () => {
+    const r = loadResult("pass-tool-calls-exit-retry");
+    expect(r).toolCalls.toIncludeInOrder([
+      { name: "shell", args: { command: /go test/ }, exitCode: 0 },
+    ]);
+  });
+
+  it("fails when no call has the expected exitCode", () => {
+    const r = loadResult("fail-tool-calls-exit-code");
+    assertFail(
+      () =>
+        expect(r).toolCalls.toIncludeInOrder([
+          { name: "shell", args: { command: /go test/ }, exitCode: 0 },
+        ]),
+      "toolCalls.order[0]",
+    );
+  });
+
+  it("passes orderExcludes when the command was never run", () => {
+    const r = loadResult("pass-tool-calls-order-excludes");
+    expect(r).toolCalls.not.toIncludeInOrder([
+      { name: "shell", args: { command: /rm -rf/ }, exitCode: 0 },
+    ]);
+  });
+
+  it("fails orderExcludes when a forbidden call matches", () => {
+    const r = loadResult("fail-tool-calls-order-excludes");
+    assertFail(
+      () =>
+        expect(r).toolCalls.not.toIncludeInOrder([
+          { name: "shell", args: { command: /rm -rf/ }, exitCode: 0 },
+        ]),
+      "toolCalls.orderExcludes[0]",
+    );
+  });
+
+  it("fails orderExcludes when exitCode is unknown", () => {
+    const r = loadResult("fail-tool-calls-order-excludes-unknown");
+    assertFail(
+      () =>
+        expect(r).toolCalls.not.toIncludeInOrder([
+          { name: "shell", args: { command: /rm -rf/ }, exitCode: 0 },
+        ]),
+      "toolCalls.orderExcludes[0]",
+    );
+  });
+
+  it("checks exclude steps independently", () => {
+    const r = loadResult("fail-tool-calls-order-excludes-independent");
+    assertFail(
+      () =>
+        expect(r).toolCalls.not.toIncludeInOrder([
+          { name: "shell", args: { command: /rm -rf/ }, exitCode: 0 },
+          { name: "shell", args: { command: /curl/ }, exitCode: 0 },
+        ]),
+      "toolCalls.orderExcludes[1]",
+    );
+  });
+
+  it("throws for empty exitCode instead of failing the check", () => {
+    const r = loadResult("pass-tool-calls-exit-code");
+    const empty = [] as unknown as [number, ...number[]];
+    assert.throws(
+      () => expect(r).toolCalls.toIncludeInOrder([{ name: "shell", exitCode: empty }]),
+      { message: "toIncludeInOrder: exitCode must not be empty" },
+    );
+  });
+
+  it("throws for exitCode on a non-shell name", () => {
+    const r = loadResult("pass-tool-calls-exit-code");
+    assert.throws(
+      () => expect(r).toolCalls.toIncludeInOrder([{ name: "edit", exitCode: 0 }]),
+      { message: 'toIncludeInOrder: exitCode is only valid for shell or Bash, not "edit"' },
+    );
+  });
 });
 
 describe("expect files", () => {

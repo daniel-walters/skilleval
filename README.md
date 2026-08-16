@@ -93,7 +93,10 @@ expect(result).toolsUsed.toInclude("read", "edit").not.toInclude("web");
 expect(result).toolCalls.named("edit").toBeGreaterThanOrEqual(1);
 expect(result).toolCalls.toIncludeInOrder([
   { name: ["write", "edit"], args: { path: "src/foo.go" } },
-  { name: "shell", args: { command: /git commit/ } },
+  { name: ["shell", "Bash"], args: { command: /git commit/ }, exitCode: 0 },
+]);
+expect(result).toolCalls.not.toIncludeInOrder([
+  { name: ["shell", "Bash"], args: { command: /rm -rf/ }, exitCode: 0 },
 ]);
 expect(result).skills.activated.toInclude("refactor-helper");
 expect(result, workspace)
@@ -164,6 +167,17 @@ expects:
         args:
           path:
             equals: src/foo.go
+      - name: [shell, Bash]
+        args:
+          command:
+            contains: /git commit/
+        exitCode: 0
+    orderExcludes:
+      - name: [shell, Bash]
+        args:
+          command:
+            contains: rm -rf
+        exitCode: 0
   skills:
     activated:
       includes: [refactor-helper]
@@ -249,9 +263,12 @@ Numeric bounds (`turns`, `durationMs`, `toolCalls`, `costUSD`, and `usage.*Token
 
 - **Total count** — same numeric bounds as above (`min` / `toBeGreaterThanOrEqual`, …)
 - **`named.<tool>`** — count bounds for one tool name (`named.edit.min` / `toolCalls.named("edit").toBeGreaterThanOrEqual(1)`)
-- **`order` / `toIncludeInOrder`** — ordered **subsequence** (gaps allowed before/between/after). Each step has `name` (one tool name or a nonempty list) and optional `args`. A list matches if the call name equals any of those names (exact). YAML arg checks use `contains` / `equals` (literal or `/regex/`). In TypeScript, a string arg means equals and a `RegExp` means match.
+- **`order` / `toIncludeInOrder`** — ordered **subsequence** (gaps allowed before/between/after). Each step has `name` (one tool name or a nonempty list), optional `args`, and optional `exitCode` (one integer or a list; match if equal to any). A list of names matches if the call name equals any of those names (exact). YAML arg checks use `contains` / `equals` (literal or `/regex/`). In TypeScript, a string arg means equals and a `RegExp` means match. `exitCode` is only valid when every listed name is `shell` or `Bash` (empty list or a non-shell name is an **invalid expect**).
+- **`orderExcludes` / `.not.toIncludeInOrder`** — each step must **not** match any tool call. Steps are independent (not an ordered subsequence). Same step shape as `order`.
 
-Result `metrics.toolCalls` entries may include lean pre-call `args` (normalized `path` and `command`; large bodies stripped). Claude `file_path` is mapped to `path`, and `path` values under the attempt workspace are stored workspace-relative.
+Result `metrics.toolCalls` entries may include lean pre-call `args` (normalized `path` and `command`; large bodies stripped). Claude `file_path` is mapped to `path`, and `path` values under the attempt workspace are stored workspace-relative. `shell` and `Bash` calls may include `exitCode` (integer process status) when the runner can observe it; `0` is stored as `0`. The field is omitted when unknown — not mixed into `args`, and distinct from tool-call `status` (invocation completion).
+
+A positive `exitCode` filter does not match a call with omitted `exitCode` (the checker keeps scanning). An `orderExcludes` step that sets `exitCode` **fails closed** if any name+args match has omitted `exitCode` (`exitCode unknown, cannot assert absence`). If a matching call with a known forbidden code also exists, that match is reported instead. Portable steps use `name: [shell, Bash]`. `.not.toIncludeInOrder` does not mean “this sequence didn’t happen.” TypeScript `run().exitCode` is the CLI process status, not a tool observable.
 
 When the harness omits `costUSD`, skilleval estimates it from `cost/rates.json`. Unknown or unpriced models leave `costUSD` nil.
 

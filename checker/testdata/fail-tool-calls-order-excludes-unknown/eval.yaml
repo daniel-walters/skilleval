@@ -1,0 +1,12 @@
+schemaVersion: 1
+name: fail-tool-calls-order-excludes-unknown
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  toolCalls:
+    orderExcludes:
+      - name: shell
+        args:
+          command:
+            contains: rm -rf
+        exitCode: 0

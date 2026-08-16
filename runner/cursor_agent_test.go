@@ -62,6 +62,33 @@ func TestMapHelperOutputRunningBecomesErrorOnFailedRun(t *testing.T) {
 	}
 }
 
+func TestMapHelperOutputPreservesExitCode(t *testing.T) {
+	zero := 0
+	one := 1
+	raw := helperOutput{
+		Status: "finished",
+		ToolCalls: []helperToolCall{
+			{Name: "shell", Status: "completed", ExitCode: &zero},
+			{Name: "shell", Status: "completed", ExitCode: &one},
+			{Name: "shell", Status: "completed"},
+			{Name: "edit", Status: "completed"},
+		},
+	}
+	obs := mapHelperOutput(raw)
+	if obs.ToolCalls[0].ExitCode == nil || *obs.ToolCalls[0].ExitCode != 0 {
+		t.Fatalf("zero = %+v", obs.ToolCalls[0].ExitCode)
+	}
+	if obs.ToolCalls[1].ExitCode == nil || *obs.ToolCalls[1].ExitCode != 1 {
+		t.Fatalf("one = %+v", obs.ToolCalls[1].ExitCode)
+	}
+	if obs.ToolCalls[2].ExitCode != nil {
+		t.Fatalf("omitted shell = %v", obs.ToolCalls[2].ExitCode)
+	}
+	if obs.ToolCalls[3].ExitCode != nil {
+		t.Fatalf("edit = %v", obs.ToolCalls[3].ExitCode)
+	}
+}
+
 func TestMapHelperOutputPreservesArgs(t *testing.T) {
 	raw := helperOutput{
 		Status: "finished",

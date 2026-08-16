@@ -1,0 +1,17 @@
+schemaVersion: 1
+name: fail-tool-calls-order-excludes-independent
+prompt: Do the thing
+skill: ../skills/helper
+expects:
+  toolCalls:
+    orderExcludes:
+      - name: shell
+        args:
+          command:
+            contains: rm -rf
+        exitCode: 0
+      - name: shell
+        args:
+          command:
+            contains: curl
+        exitCode: 0

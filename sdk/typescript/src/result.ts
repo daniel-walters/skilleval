@@ -45,6 +45,8 @@ export interface ToolCall {
   status: ToolCallStatus;
   /** Lean pre-call args (path, command, other small scalars). */
   args?: Record<string, string | number | boolean | null>;
+  /** Process status of a shell or Bash invocation; omitted when unknown. */
+  exitCode?: number;
 }
 
 export interface Usage {

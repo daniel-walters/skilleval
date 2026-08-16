@@ -18,6 +18,8 @@ const {
   userEvent,
   errorEvent,
   appendClaudeMessage,
+  applyClaudeUserToolResults,
+  finalizeLogEvents,
 } = await import("./agentlog.mjs");
 const { emptyUsage, addUsage, addCost, userMessages } = await import(
   "./legagg.mjs"
@@ -65,6 +67,19 @@ function mapStatus(resultMsg) {
     default:
       return resultMsg.is_error === false ? "finished" : "error";
   }
+}
+
+function emitToolCalls(toolCalls) {
+  return toolCalls.map(({ name, status, args, exitCode }) => {
+    const out = { name, status };
+    if (args && Object.keys(args).length > 0) {
+      out.args = args;
+    }
+    if (typeof exitCode === "number") {
+      out.exitCode = exitCode;
+    }
+    return out;
+  });
 }
 
 async function main() {
@@ -118,6 +133,7 @@ async function main() {
               const name = block.name ?? "unknown";
               toolsUsedSet.add(name);
               const entry = { name, status: "completed" };
+              if (block.id) entry.id = block.id;
               const args = normalizeToolArgs(block.input, cwd);
               if (args) entry.args = args;
               toolCalls.push(entry);
@@ -128,6 +144,9 @@ async function main() {
                 }
               }
             }
+          }
+          if (message.type === "user") {
+            applyClaudeUserToolResults(toolCalls, logEvents, message);
           }
           if (message.type === "result") {
             resultMsg = message;
@@ -186,11 +205,11 @@ async function main() {
       durationMs,
       turns,
       toolsUsed: [...toolsUsedSet],
-      toolCalls,
+      toolCalls: emitToolCalls(toolCalls),
       usage,
       skills: { activated: [...activatedSkills] },
       costUSD,
-      log: makeLog(logEvents),
+      log: makeLog(finalizeLogEvents(logEvents, status)),
     };
     process.stdout.write(JSON.stringify(out) + "\n");
   } catch (err) {
@@ -204,11 +223,11 @@ async function main() {
       durationMs,
       turns,
       toolsUsed: [...toolsUsedSet],
-      toolCalls,
+      toolCalls: emitToolCalls(toolCalls),
       usage,
       skills: { activated: [...activatedSkills] },
       costUSD,
-      log: makeLog(logEvents),
+      log: makeLog(finalizeLogEvents(logEvents, "error")),
     };
     process.stdout.write(JSON.stringify(out) + "\n");
   }
