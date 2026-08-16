@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -85,25 +86,70 @@ func Sync(ctx context.Context, opts Options) (Result, error) {
 	return res, nil
 }
 
+const fetchAttempts = 3
+
+// fetchRetryDelay is the pause after a retryable failure. Tests set this to 0.
+var fetchRetryDelay = func(attempt int) time.Duration {
+	return time.Duration(attempt) * 400 * time.Millisecond
+}
+
+type retryableError struct{ error }
+
+func (e retryableError) Unwrap() error { return e.error }
+
+func retryableStatus(code int) bool {
+	switch code {
+	case http.StatusNotFound, http.StatusRequestTimeout, http.StatusTooManyRequests,
+		http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
+	}
+}
+
 func fetchMarkdown(ctx context.Context, client *http.Client, url string) (string, error) {
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
+	var lastErr error
+	for attempt := 1; attempt <= fetchAttempts; attempt++ {
+		body, err := fetchMarkdownOnce(ctx, client, url)
+		if err == nil {
+			return body, nil
+		}
+		lastErr = err
+		if attempt == fetchAttempts || !errors.As(err, new(retryableError)) {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("ratesync: fetch %s: %w", url, ctx.Err())
+		case <-time.After(fetchRetryDelay(attempt)):
+		}
+	}
+	return "", lastErr
+}
+
+func fetchMarkdownOnce(ctx context.Context, client *http.Client, url string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", fmt.Errorf("ratesync: build request: %w", err)
 	}
 	req.Header.Set("Accept", "text/markdown, text/plain, */*")
-	req.Header.Set("User-Agent", "skilleval-ratesync")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; skilleval-ratesync/1.0; +https://github.com/daniel-walters/skilleval)")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("ratesync: fetch %s: %w", url, err)
+		return "", retryableError{fmt.Errorf("ratesync: fetch %s: %w", url, err)}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return "", fmt.Errorf("ratesync: fetch %s: HTTP %d: %s", url, resp.StatusCode, bytes.TrimSpace(body))
+		err := fmt.Errorf("ratesync: fetch %s: HTTP %d: %s", url, resp.StatusCode, bytes.TrimSpace(body))
+		if retryableStatus(resp.StatusCode) {
+			return "", retryableError{err}
+		}
+		return "", err
 	}
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
